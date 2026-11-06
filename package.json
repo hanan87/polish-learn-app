@@ -1,7 +1,7 @@
 {
   "name": "polish-learn-app",
   "private": true,
-  "version": "1.6.0",
+  "version": "1.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -12,10 +12,13 @@
     "icons": "pwa-assets-generator",
     "test": "vitest run",
     "test:e2e": "npm run build && playwright test",
-    "theme": "node scripts/gen-dark-theme.mjs"
+    "theme": "node scripts/gen-theme.mjs",
+    "voice": "tsx scripts/gen-voice.ts"
   },
   "dependencies": {
-    "@fontsource-variable/rubik": "^5.3.0",
+    "@fontsource-variable/frank-ruhl-libre": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans-hebrew": "^5.3.0",
     "lucide-react": "^1.69.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
@@ -29,6 +32,7 @@
     "@vite-pwa/assets-generator": "^2.0.0",
     "@vitejs/plugin-react": "^6.2.1",
     "tailwindcss": "^4.3.4",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.6",
     "vite-plugin-pwa": "^2.0.0",

@@ -378,7 +378,7 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
             onClick={compare}
             hidden={!canCompare}
             disabled={comparing !== null}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-rose-600 to-orange-500 px-4 py-3.5 text-base font-bold text-white shadow-md active:scale-[0.98] disabled:opacity-80"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-3.5 text-base font-bold text-white shadow-md active:scale-[0.98] disabled:opacity-80"
           >
             {comparing === null && <Headphones className="size-5" aria-hidden />}
             {comparing === 'speaker' && <Ear className="size-5 animate-pulse" aria-hidden />}

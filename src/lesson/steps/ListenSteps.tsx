@@ -20,10 +20,10 @@ function ListenButtons({ text }: { text: string }) {
   }, [text]);
   return (
     <div className="flex items-center justify-center gap-3 py-4">
-      <button type="button" onClick={() => speak(text)} className="grid size-24 place-items-center rounded-3xl bg-rose-600 text-white shadow-[0_6px_0_#9f1239] active:translate-y-1 active:shadow-none" aria-label={tr('השמע', 'Play')}>
+      <button type="button" onClick={() => speak(text)} className="grid size-24 place-items-center rounded-full bg-rose-600 text-white shadow-md transition hover:bg-rose-700 active:scale-95" aria-label={tr('השמע', 'Play')}>
         <Volume2 className="size-11" />
       </button>
-      <button type="button" onClick={() => speak(text, RATE_SLOW)} className="grid size-16 place-items-center rounded-2xl bg-rose-100 text-rose-700 shadow-[0_4px_0_#fecdd3] active:translate-y-1 active:shadow-none" aria-label={tr('השמע לאט', 'Play slowly')}>
+      <button type="button" onClick={() => speak(text, RATE_SLOW)} className="grid size-16 place-items-center rounded-full border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50 active:scale-95" aria-label={tr('השמע לאט', 'Play slowly')}>
         <Snail className="size-7" />
       </button>
     </div>

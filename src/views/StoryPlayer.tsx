@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, ChevronDown, Eye, EyeOff, Play, Square, Trophy, Volume2, X, XCircle } from 'lucide-react';
-import { lookupWord, splitEnding, wordKey, type Story } from '../data/stories';
+import { lookupWord, speakerVoice, splitEnding, wordKey, type Story } from '../data/stories';
 import { Phonetic } from '../components/Phonetic';
+import { StoryIcon } from '../components/StoryIcon';
 import { PolishSyllables } from '../components/PolishSyllables';
 import { useLang } from '../i18n/LangContext';
 import { haptic } from '../lib/haptics';
@@ -90,7 +91,7 @@ export function StoryPlayer({ story, onExit }: { story: Story; onExit: () => voi
     if (quiz) return;
     const i = shown - 1;
     setPlayingLine(i);
-    speak(story.lines[i].polish, 0.9).then(() => setPlayingLine((p) => (p === i ? null : p)));
+    speak(story.lines[i].polish, 0.9, speakerVoice(story.lines[i].speaker)).then(() => setPlayingLine((p) => (p === i ? null : p)));
   }, [shown, story, quiz]);
 
   useEffect(() => {
@@ -108,6 +109,7 @@ export function StoryPlayer({ story, onExit }: { story: Story; onExit: () => voi
       RATE_CHAIN,
       (i) => setPlayingLine(i),
       500,
+      story.lines.slice(0, shown).map((l) => speakerVoice(l.speaker)),
     );
     setPlayingLine(null);
   };
@@ -137,8 +139,8 @@ export function StoryPlayer({ story, onExit }: { story: Story; onExit: () => voi
           <BackIcon className="size-5" />
         </button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-lg font-black">
-            {story.emoji} {story.title[lang]}
+          <p className="flex items-center gap-2 truncate font-serif text-xl font-semibold">
+            <StoryIcon id={story.id} className="size-5 shrink-0 text-rose-600" /> {story.title[lang]}
           </p>
           <p className="polish truncate text-xs text-slate-500" dir="ltr">
             {story.titlePl}
@@ -195,7 +197,7 @@ export function StoryPlayer({ story, onExit }: { story: Story; onExit: () => voi
                       </button>
                     );
                   })}
-                  <button type="button" onClick={() => speak(line.polish, 0.9)} className="text-slate-400" aria-label={tr('השמע שורה', 'Play line')}>
+                  <button type="button" onClick={() => speak(line.polish, 0.9, speakerVoice(line.speaker))} className="text-slate-400" aria-label={tr('השמע שורה', 'Play line')}>
                     <Volume2 className="size-4" />
                   </button>
                 </p>

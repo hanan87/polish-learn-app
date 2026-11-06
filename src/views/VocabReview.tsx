@@ -62,30 +62,32 @@ export function VocabReview({ onOpenItem, onStartPractice, onOpenSoundGroup, onO
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl bg-gradient-to-bl from-rose-600 to-orange-500 p-5 text-white shadow-lg">
-        <div className="flex items-center gap-2 text-sm font-medium opacity-90">
-          <Layers className="size-4" /> {tr('חזרה מרווחת (Spaced Repetition)', 'Spaced repetition')}
-        </div>
-        <p className="mt-2 text-3xl font-black">{tr(`${due.length} כרטיסים לחזרה היום`, `${due.length} cards due today`)}</p>
-        <p className="mt-1 text-sm opacity-90">
+      <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
+        <p className="eyebrow flex items-center gap-1.5">
+          <Layers className="size-3.5" /> {tr('חזרה מרווחת', 'Spaced repetition')}
+        </p>
+        <h2 className="mt-2 text-3xl leading-tight">
+          <span className="text-rose-600 tabular-nums">{due.length}</span> {tr('כרטיסים לחזרה היום', 'cards due today')}
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
           {tr(
             `מילים שנלמדו חוזרות במרווחים הולכים וגדלים: ${SRS_INTERVALS.slice(1).join(', ')} ימים. טעות בהגייה, בכתיבה או בתרגיל מורידה רמת שליטה ומחזירה את המילה להיום.`,
             `Learned words come back at growing intervals: ${SRS_INTERVALS.slice(1).join(', ')} days. A pronunciation, writing or exercise mistake lowers mastery and brings the word back today.`,
           )}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" disabled={due.length === 0} onClick={() => setSession(due.slice(0, 20))} className="rounded-2xl bg-white px-5 py-3 font-bold text-rose-600 shadow active:scale-95 disabled:opacity-60">
+          <button type="button" disabled={due.length === 0} onClick={() => setSession(due.slice(0, 20))} className="btn-primary">
             {tr('התחל חזרה', 'Start review')}
           </button>
           {due.length === 0 && learnedIds.length > 0 && (
-            <button type="button" onClick={() => setSession(shuffle(learnedIds).slice(0, 15))} className="rounded-2xl bg-white/20 px-4 py-3 font-medium ring-1 ring-white/50 active:scale-95">
+            <button type="button" onClick={() => setSession(shuffle(learnedIds).slice(0, 15))} className="btn-secondary">
               {tr(`תרגול חופשי (${learnedIds.length})`, `Free practice (${learnedIds.length})`)}
             </button>
           )}
           <button
             type="button"
             onClick={() => setDirection((d) => (d === 'native-pl' ? 'pl-native' : 'native-pl'))}
-            className="flex items-center gap-1.5 rounded-2xl bg-white/20 px-4 py-3 text-sm font-medium ring-1 ring-white/50 active:scale-95"
+            className="btn-secondary"
           >
             <ArrowLeftRight className="size-4" />
             {direction === 'native-pl' ? tr('עברית ← פולנית', 'English → Polish') : tr('פולנית ← עברית', 'Polish → English')}
@@ -97,14 +99,14 @@ export function VocabReview({ onOpenItem, onStartPractice, onOpenSoundGroup, onO
         <button
           type="button"
           onClick={onOpenBlitz}
-          className="flex items-center gap-3 rounded-3xl bg-gradient-to-l from-amber-500 to-yellow-400 p-4 text-start text-white shadow-md transition active:scale-[0.98]"
+          className="group flex items-center gap-3.5 rounded-2xl bg-white p-4 text-start ring-1 ring-slate-200 transition hover:ring-slate-300 active:scale-[0.99]"
         >
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/25">
-            <Zap className="size-6 fill-white" />
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-amber-500 text-white">
+            <Zap className="size-5" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-base font-black">{tr('אתגר מהירות 60 שניות', '60-second Speed Blitz')}</span>
-            <span className="flex items-center gap-1 text-xs text-white/90">
+            <span className="block font-semibold text-slate-900">{tr('אתגר מהירות 60 שניות', '60-second Speed Blitz')}</span>
+            <span className="flex items-center gap-1 text-sm text-slate-500">
               <Trophy className="size-3.5" /> {tr('השיא שלכם', 'Your record')}: {state.blitz.best}
             </span>
           </span>
@@ -112,13 +114,13 @@ export function VocabReview({ onOpenItem, onStartPractice, onOpenSoundGroup, onO
         <HandsFreeButton onClick={onOpenHandsFree} subtitle={tr('חזרה קולית על המילים שלמדתם – החלשות קודם.', 'Audio review of your learned words – weakest first.')} />
       </div>
 
-      <section className="space-y-3 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <div className="flex items-start gap-3">
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-indigo-100 text-indigo-700">
-            <Dumbbell className="size-6" />
+      <section className="space-y-3 rounded-2xl bg-white p-5 ring-1 ring-slate-200">
+        <div className="flex items-start gap-3.5">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-indigo-100 text-indigo-700">
+            <Dumbbell className="size-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-black">{tr('אימון חיזוק מותאם אישית', 'Personalized reinforcement')}</p>
+            <p className="font-serif text-xl font-semibold">{tr('אימון חיזוק מותאם אישית', 'Personalized reinforcement')}</p>
             <p className="text-sm text-slate-600">
               {tr(
                 'שיעור של 8 תרגילים שנבנה אוטומטית מהמילים והצלילים שבהם קיבלתם את הציונים הנמוכים ביותר.',
@@ -127,7 +129,7 @@ export function VocabReview({ onOpenItem, onStartPractice, onOpenSoundGroup, onO
             </p>
           </div>
         </div>
-        <button type="button" disabled={!hasHistory} onClick={onStartPractice} className="w-full rounded-2xl bg-indigo-600 py-3.5 font-bold text-white shadow-md active:scale-[0.98] disabled:bg-slate-300 disabled:shadow-none">
+        <button type="button" disabled={!hasHistory} onClick={onStartPractice} className="btn-primary w-full">
           {hasHistory ? tr('התחל אימון חיזוק', 'Start reinforcement') : tr('השלימו שיעור אחד כדי לפתוח', 'Complete one lesson to unlock')}
         </button>
       </section>

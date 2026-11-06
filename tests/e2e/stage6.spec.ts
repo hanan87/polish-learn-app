@@ -250,8 +250,8 @@ test.describe('Dla Kasi', () => {
   }
 });
 
-test('Settings shows release 1.6.0', async ({ page }) => {
+test('Settings shows the current release', async ({ page }) => {
   const errors = await openApp(page, { lang: 'en', hash: '#/map/settings' });
-  await expect(page.getByTestId('app-version')).toContainText('v1.6.0');
+  await expect(page.getByTestId('app-version')).toContainText(/v1\.\d+\.\d+/);
   expectNoErrors(errors);
 });

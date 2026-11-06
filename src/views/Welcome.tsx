@@ -23,22 +23,22 @@ export function Welcome() {
   if (chosen) {
     const t = (he: string, en: string) => (chosen === 'he' ? he : en);
     return (
-      <div dir={chosen === 'he' ? 'rtl' : 'ltr'} className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-gradient-to-b from-rose-50 to-white px-6 py-10">
+      <div dir={chosen === 'he' ? 'rtl' : 'ltr'} className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-slate-50 px-6 py-10">
         <img src={logoUrl} alt="" className="size-16 rounded-2xl shadow" />
         <div className="text-center">
-          <p className="text-2xl font-black text-slate-900">{t('נעים להכיר!', 'Nice to meet you!')}</p>
+          <p className="font-serif text-3xl font-semibold text-slate-900">{t('נעים להכיר!', 'Nice to meet you!')}</p>
           <p className="polish text-slate-500" dir="ltr">
             Miło mi!
           </p>
         </div>
-        <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div className="w-full max-w-md rounded-2xl bg-white p-5 ring-1 ring-slate-200">
           <ProfileFields lang={chosen} profile={state.profile} onChange={setProfile} />
         </div>
         <div className="grid w-full max-w-md gap-2">
           <button
             type="button"
             onClick={() => setLang(chosen)}
-            className="rounded-2xl bg-rose-600 py-4 text-base font-bold text-white shadow-md active:scale-[0.98]"
+            className="btn-primary py-4 text-base"
           >
             {t('בואו נתחיל', "Let's start")}
           </button>
@@ -51,10 +51,10 @@ export function Welcome() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-8 bg-gradient-to-b from-rose-50 to-white px-6 py-10 text-center">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-8 bg-slate-50 px-6 py-10 text-center">
       <img src={logoUrl} alt="" className="size-24 rounded-3xl shadow-lg" />
       <div>
-        <p className="polish text-4xl font-black text-slate-900" dir="ltr">
+        <p className="polish font-serif text-5xl font-semibold tracking-tight text-slate-900" dir="ltr">
           Polski od zera
         </p>
         <p className="mt-1 text-slate-500">פולנית מאפס · Polish from zero</p>
@@ -66,9 +66,9 @@ export function Welcome() {
             type="button"
             dir={o.dir}
             onClick={() => setChosen(o.lang)}
-            className="rounded-3xl bg-white p-5 text-start shadow-sm ring-2 ring-slate-200 transition hover:ring-rose-400 active:scale-[0.98]"
+            className="rounded-2xl bg-white p-5 text-start ring-1 ring-slate-200 transition hover:ring-slate-900 active:scale-[0.99]"
           >
-            <span className="block text-xl font-black text-slate-900">{o.title}</span>
+            <span className="block font-serif text-2xl font-semibold text-slate-900">{o.title}</span>
             <span className="mt-1 block text-sm text-slate-500">{o.sub}</span>
             <span className="mt-3 flex items-center gap-2 text-sm">
               <span dir="ltr" className="polish font-bold text-slate-800">

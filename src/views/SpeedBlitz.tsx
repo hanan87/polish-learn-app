@@ -137,7 +137,7 @@ export function SpeedBlitz({ onExit }: { onExit: () => void }) {
   const newRecord = phase === 'over' && score > prevBest;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-gradient-to-b from-amber-50 to-white" data-testid="speed-blitz">
+    <div className="flex min-h-dvh flex-col bg-slate-50" data-testid="speed-blitz">
       <header className="pt-safe flex items-center gap-2 px-4 py-3">
         <button type="button" onClick={onExit} className="grid size-10 place-items-center rounded-full hover:bg-amber-100" aria-label={tr('יציאה', 'Exit')}>
           <X className="size-5" />

@@ -82,7 +82,7 @@ export function AssembleStep({ step, answered, onAnswered }: StepProps<AssembleS
             type="button"
             disabled={answered}
             onClick={() => setChosen((c) => c.filter((_, i) => i !== pos))}
-            className="polish animate-pop-in rounded-xl bg-white px-3 py-2 text-lg font-semibold shadow-[0_3px_0_rgba(15,23,42,0.12)] ring-1 ring-slate-200"
+            className="polish animate-pop-in rounded-xl bg-white px-3 py-2 text-lg font-semibold shadow-xs ring-1 ring-slate-300"
           >
             {step.bank[bankIdx]}
           </button>
@@ -101,7 +101,7 @@ export function AssembleStep({ step, answered, onAnswered }: StepProps<AssembleS
                 speak(word);
               }}
               className={`polish rounded-xl px-3 py-2 text-lg font-semibold ring-1 transition ${
-                used ? 'bg-slate-200 text-transparent ring-slate-200' : 'bg-white shadow-[0_3px_0_rgba(15,23,42,0.12)] ring-slate-200 active:translate-y-0.5'
+                used ? 'bg-slate-200 text-transparent ring-slate-200' : 'bg-white shadow-xs ring-slate-300 active:scale-95'
               }`}
             >
               {word}

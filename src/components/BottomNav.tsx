@@ -20,7 +20,7 @@ interface Props {
 export function BottomNav({ active, onChange, dueCount }: Props) {
   const { lang, tr } = useLang();
   return (
-    <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80" aria-label={tr('ניווט ראשי', 'Main navigation')}>
+    <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur" aria-label={tr('ניווט ראשי', 'Main navigation')}>
       <ul className="mx-auto grid max-w-3xl grid-cols-4">
         {TABS.map(({ id, icon: Icon, ...labels }) => {
           const isActive = id === active;
@@ -30,13 +30,12 @@ export function BottomNav({ active, onChange, dueCount }: Props) {
                 type="button"
                 onClick={() => onChange(id)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`relative flex min-h-16 w-full flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] leading-tight font-medium transition sm:text-xs ${
-                  isActive ? 'text-rose-600' : 'text-slate-500 hover:text-slate-800'
+                className={`relative flex min-h-16 w-full flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] leading-tight transition sm:text-xs ${
+                  isActive ? 'font-semibold text-slate-900' : 'font-medium text-slate-500 hover:text-slate-800'
                 }`}
               >
-                <span className={`grid h-8 w-14 place-items-center rounded-full transition ${isActive ? 'bg-rose-100' : ''}`}>
-                  <Icon className="size-5" aria-hidden strokeWidth={isActive ? 2.4 : 2} />
-                </span>
+                <span aria-hidden className={`absolute inset-x-6 top-0 h-0.5 rounded-full transition ${isActive ? 'bg-rose-600' : 'bg-transparent'}`} />
+                <Icon className="size-5" aria-hidden strokeWidth={isActive ? 2 : 1.6} />
                 <span className="text-center">{labels[lang]}</span>
                 {id === 'vocab' && dueCount > 0 && (
                   <span className="absolute top-1.5 left-1/2 ms-4 min-w-5 rounded-full bg-rose-600 px-1.5 text-[10px] leading-5 font-bold text-white">{dueCount}</span>

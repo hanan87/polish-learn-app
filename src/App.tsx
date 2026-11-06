@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { clipCount, subscribeManifest } from './lib/voiceClips';
 import { getItem } from './data';
 import { BottomNav, TABS, type TabId } from './components/BottomNav';
 import { ItemDetail } from './components/ItemDetail';
@@ -45,6 +46,7 @@ export function App() {
   const { lang, unset, tr } = useLang();
   const mic = useMic();
   const [voiceMissing, setVoiceMissing] = useState(false);
+  const clips = useSyncExternalStore(subscribeManifest, clipCount);
 
   useEffect(() => {
     if (!ttsSupported) return;
@@ -80,8 +82,8 @@ export function App() {
     <div className="flex min-h-dvh flex-col">
       {mic.blocked && mic.status !== 'no-device' && <StandaloneDownload />}
       <TopBar title={tabInfo[lang]} onOpenSettings={() => navigate(`${tab}/settings`)} onOpenKasia={() => navigate(`${tab}/kasia`)} />
-      {voiceMissing && (
-        <p className="mx-auto mt-2 w-full max-w-3xl px-4 text-xs text-amber-700">
+      {voiceMissing && clips === 0 && (
+        <p className="mx-auto mt-3 w-full max-w-3xl px-4 text-xs leading-relaxed text-slate-500">
           {tr(
             'לא נמצא קול פולני במכשיר – ההקראה עשויה להישמע במבטא זר. באנדרואיד: הגדרות ← שפה ← המרת טקסט לדיבור ← התקינו פולנית. ב-iPhone: הגדרות ← נגישות ← תוכן מוקרא ← קולות ← פולנית.',
             'No Polish voice was found on this device – playback may sound foreign. Android: Settings → Language → Text-to-speech → install Polish. iPhone: Settings → Accessibility → Spoken Content → Voices → Polish.',

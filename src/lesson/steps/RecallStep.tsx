@@ -57,7 +57,7 @@ export function RecallStep({ step, answered, onAnswered }: StepProps<Step>) {
       <h2 className="flex items-center gap-2 text-xl font-bold">
         <MessageCircleQuestion className="size-6 text-rose-600" /> {tr('אמרו בפולנית – מהזיכרון', 'Say it in Polish – from memory')}
       </h2>
-      <div className="space-y-2 rounded-2xl bg-gradient-to-bl from-indigo-50 to-white p-4 ring-1 ring-indigo-200">
+      <div className="space-y-2 rounded-2xl bg-indigo-50 p-4 ring-1 ring-indigo-200">
         <FormalityBadge formality={item.formality} />
         <p className="text-lg leading-relaxed font-bold text-slate-900">{situation}</p>
       </div>

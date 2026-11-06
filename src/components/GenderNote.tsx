@@ -15,7 +15,7 @@ export function GenderNote({ item }: { item: LearningItem }) {
       <div className="min-w-0 flex-1">
         <p>
           <span className="font-bold">{label}</span>{' '}
-          <button type="button" onClick={() => speak(alt.polish)} className="polish inline-flex items-center gap-1 font-bold underline decoration-violet-300" dir="ltr">
+          <button type="button" onClick={() => speak(alt.polish, 1, alt.gender)} className="polish inline-flex items-center gap-1 font-bold underline decoration-violet-300" dir="ltr">
             {alt.polish}
             <Volume2 className="size-3.5" />
           </button>

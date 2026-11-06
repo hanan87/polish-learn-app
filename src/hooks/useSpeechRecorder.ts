@@ -14,7 +14,7 @@ import { getCapturePreference, learnMode, resolveCaptureMode, type CaptureMode }
 import { getRecognizerCtor, isAndroid, ttsSupported, type Recognizer } from '../lib/env';
 import { micLog, sttSession } from '../lib/micLog';
 import { normalize, similarity } from '../lib/text';
-import { stopSpeaking } from '../lib/tts';
+import { isSpeaking, stopSpeaking } from '../lib/tts';
 import { haptic } from '../lib/haptics';
 import { useMic } from '../state/MicContext';
 
@@ -412,7 +412,7 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
     if (statusRef.current === 'recording' || statusRef.current === 'starting' || statusRef.current === 'processing') return;
 
     // An active or stuck TTS utterance can hold the audio session – cancel it and give it a moment.
-    const wasSpeaking = ttsSupported && (window.speechSynthesis.speaking || window.speechSynthesis.pending);
+    const wasSpeaking = isSpeaking();
     stopSpeaking();
     if (ttsSupported) window.speechSynthesis.cancel();
 

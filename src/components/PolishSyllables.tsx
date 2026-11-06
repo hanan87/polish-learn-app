@@ -1,10 +1,10 @@
 import { parseSyllables } from '../lib/syllables';
 
 const SIZES = {
-  xl: 'text-4xl sm:text-5xl',
-  lg: 'text-3xl sm:text-4xl',
-  md: 'text-2xl',
-  sm: 'text-lg',
+  xl: 'font-serif font-medium text-4xl sm:text-5xl',
+  lg: 'font-serif font-medium text-3xl sm:text-4xl',
+  md: 'font-serif font-medium text-2xl',
+  sm: 'font-semibold text-lg',
 } as const;
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
 export function PolishSyllables({ notation, size = 'lg', showDots = true, className = '' }: Props) {
   const words = parseSyllables(notation);
   return (
-    <p dir="ltr" lang="pl" className={`polish font-semibold leading-snug text-slate-900 ${SIZES[size]} ${className}`}>
+    <p dir="ltr" lang="pl" className={`polish leading-snug text-slate-900 ${SIZES[size]} ${className}`}>
       {words.map((word, wi) => (
         <span key={wi} className="inline-block whitespace-nowrap">
           {word.map((syl, si) => (
@@ -27,7 +27,7 @@ export function PolishSyllables({ notation, size = 'lg', showDots = true, classN
               {si > 0 && showDots && <span className="mx-[0.06em] text-slate-300">·</span>}
               <span
                 className={
-                  syl.stressed ? 'rounded-md bg-rose-100 px-[0.12em] text-rose-600 underline decoration-rose-400 decoration-4 underline-offset-[0.2em]' : ''
+                  syl.stressed ? 'text-rose-600 underline decoration-rose-300 decoration-2 underline-offset-[0.22em]' : ''
                 }
               >
                 {syl.text}

@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react';
-import { CheckCircle2, ChevronDown, Flame, Headphones, Lock, Play, RotateCcw, Star, Target, Trophy, UserRound, X } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle2, ChevronDown, Headphones, Lock, Play, RotateCcw, Star, Trophy, UserRound, X } from 'lucide-react';
 import { ProfileFields } from '../components/ProfileFields';
+import { displayName } from '../lib/personalize';
 import { UNITS } from '../data';
 import { lessonsOfUnit } from '../data/lessons';
 import { itemText, unitText, type UnitColor } from '../data/types';
@@ -32,16 +33,16 @@ export function HandsFreeButton({ onClick, subtitle }: { onClick: () => void; su
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-3xl bg-gradient-to-l from-indigo-600 to-sky-500 p-4 text-start text-white shadow-md transition active:scale-[0.98]"
+      className="group flex w-full items-center gap-3.5 rounded-2xl bg-white p-4 text-start ring-1 ring-slate-200 transition hover:ring-slate-300 active:scale-[0.99]"
     >
-      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/20">
-        <Headphones className="size-6" />
+      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-slate-900 text-white">
+        <Headphones className="size-5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-base font-black">{tr('מצב נהיגה והליכה (שמע בלבד)', 'Driving & walking mode (audio only)')}</span>
-        <span className="block text-xs text-white/85">{subtitle}</span>
+        <span className="block font-semibold text-slate-900">{tr('מצב נהיגה והליכה (שמע בלבד)', 'Driving & walking mode (audio only)')}</span>
+        <span className="block text-sm text-slate-500">{subtitle}</span>
       </span>
-      <Play className="size-6 shrink-0 fill-white" />
+      <Play className="size-5 shrink-0 text-slate-400 transition group-hover:text-slate-900" />
     </button>
   );
 }
@@ -57,26 +58,39 @@ export function CourseMap({ onOpenLesson, onOpenItem, onOpenHandsFree }: Props) 
   });
 
   const goalPct = Math.min(100, (todayXp / state.dailyGoal) * 100);
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? tr('בוקר טוב', 'Good morning') : hour < 18 ? tr('צהריים טובים', 'Good afternoon') : tr('ערב טוב', 'Good evening');
+  const firstName = state.profile.name.trim() ? displayName(state.profile, lang) : '';
 
   return (
     <div className="space-y-5">
-      <section className="grid grid-cols-3 gap-2 sm:gap-3">
-        <Stat icon={<Flame className="size-5 text-orange-500" />} label={tr('ימי רצף', 'Day streak')} value={activeStreak} sub={`${tr('שיא', 'Best')}: ${state.streak.best}`} />
-        <Stat icon={<Star className="size-5 fill-amber-400 text-amber-500" />} label={tr('נקודות XP', 'XP points')} value={state.xp} sub={`${tr('רמה', 'Level')} ${level}`} />
-        <Stat
-          icon={<Target className="size-5 text-emerald-600" />}
-          label={tr('יעד יומי', 'Daily goal')}
-          value={`${todayXp}/${state.dailyGoal}`}
-          sub={goalPct >= 100 ? tr('הושג!', 'Reached!') : tr('XP היום', 'XP today')}
-        >
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${goalPct}%` }} />
+      <section className="pt-1" data-testid="map-greeting">
+        <p className="eyebrow">{new Date().toLocaleDateString(lang === 'he' ? 'he-IL' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+        <h2 className="mt-1 text-3xl leading-tight font-semibold">
+          {greeting}
+          {firstName && <span className="text-rose-600">, {firstName}</span>}
+        </h2>
+        <div className="mt-4 flex items-center gap-3 text-sm text-slate-600">
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-200">
+            <div className="h-full rounded-full bg-slate-900 transition-all" style={{ width: `${goalPct}%` }} />
           </div>
-        </Stat>
+          <span className="shrink-0 tabular-nums">
+            <span className="font-semibold text-slate-900">{todayXp}</span>/{state.dailyGoal} XP {tr('היום', 'today')}
+          </span>
+        </div>
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+          <span>
+            {tr('רצף', 'Streak')} <span className="font-semibold text-slate-800 tabular-nums">{activeStreak}</span> · {tr('שיא', 'best')} {state.streak.best}
+          </span>
+          <span>
+            {tr('רמה', 'Level')} <span className="font-semibold text-slate-800 tabular-nums">{level}</span> · {state.xp} XP
+          </span>
+        </p>
       </section>
 
       {profileOpen && (
-        <section className="relative space-y-3 rounded-3xl bg-rose-50 p-4 ring-1 ring-rose-200" data-testid="profile-prompt">
+        <section className="relative space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200" data-testid="profile-prompt">
           <button
             type="button"
             onClick={() => setProfileOpen(false)}
@@ -85,12 +99,12 @@ export function CourseMap({ onOpenLesson, onOpenItem, onOpenHandsFree }: Props) 
           >
             <X className="size-4" />
           </button>
-          <p className="flex items-center gap-1.5 font-bold text-rose-800">
+          <p className="flex items-center gap-1.5 font-semibold text-slate-900">
             <UserRound className="size-4" /> {tr('חדש: משפטים מותאמים אישית', 'New: personalized phrases')}
           </p>
           <ProfileFields lang={lang} profile={state.profile} onChange={setProfile} />
           {state.profile.gender && (
-            <button type="button" onClick={() => setProfileOpen(false)} className="w-full rounded-2xl bg-rose-600 py-3 font-bold text-white active:scale-[0.98]">
+            <button type="button" onClick={() => setProfileOpen(false)} className="btn-primary w-full">
               {tr('שמור', 'Save')}
             </button>
           )}
@@ -114,19 +128,19 @@ export function CourseMap({ onOpenLesson, onOpenItem, onOpenHandsFree }: Props) 
           const nextLesson = lessons.find((l) => !state.lessons[l.id]);
 
           return (
-            <li key={unit.id} className={`overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ${c.ring}`}>
-              <button type="button" onClick={() => setOpenUnit(expanded ? null : unit.id)} className={`flex w-full items-start gap-3 p-4 text-start ${c.bg}`} aria-expanded={expanded}>
-                <span className={`grid size-12 shrink-0 place-items-center rounded-2xl text-xl font-black text-white ${c.node}`}>
-                  {doneLessons === lessons.length ? <Trophy className="size-6" /> : unit.order}
+            <li key={unit.id} className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
+              <button type="button" onClick={() => setOpenUnit(expanded ? null : unit.id)} className="flex w-full items-start gap-4 p-4 text-start transition hover:bg-slate-50" aria-expanded={expanded}>
+                <span className={`w-10 shrink-0 font-serif text-4xl leading-none font-medium tabular-nums ${c.text}`} aria-hidden>
+                  {doneLessons === lessons.length ? <Trophy className="mt-1 size-7" /> : String(unit.order).padStart(2, '0')}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={`block text-xs font-bold ${c.text}`}>
+                  <span className="eyebrow block">
                     {tr('יחידה', 'Unit')} {unit.order}
                   </span>
-                  <span className="block text-lg leading-tight font-bold text-slate-900">{ut.title}</span>
-                  <span className="block text-sm text-slate-600">{ut.subtitle}</span>
-                  <span className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white">
+                  <span className="mt-0.5 block font-serif text-xl leading-tight font-semibold text-slate-900">{ut.title}</span>
+                  <span className="mt-0.5 block text-sm text-slate-500">{ut.subtitle}</span>
+                  <span className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                    <span className="h-1 flex-1 overflow-hidden rounded-full bg-slate-100">
                       <span className={`block h-full rounded-full ${c.bar}`} style={{ width: `${pct}%` }} />
                     </span>
                     {doneLessons}/{lessons.length} {tr('שיעורים', 'lessons')} · {learnedCount}/{unit.items.length} {tr('פריטים', 'items')}
@@ -152,9 +166,9 @@ export function CourseMap({ onOpenLesson, onOpenItem, onOpenHandsFree }: Props) 
                             type="button"
                             disabled={!unlocked}
                             onClick={() => onOpenLesson(lesson.id)}
-                            className={`relative grid size-16 place-items-center rounded-full text-white shadow-[0_5px_0_rgba(0,0,0,0.15)] transition active:translate-y-1 active:shadow-none disabled:cursor-not-allowed ${
+                            className={`relative grid size-16 place-items-center rounded-full text-white shadow-sm transition active:scale-95 disabled:cursor-not-allowed ${
                               done ? 'bg-amber-400' : unlocked ? c.node : 'bg-slate-300'
-                            } ${isNext ? 'ring-4 ring-offset-2 ' + c.ring : ''}`}
+                            } ${isNext ? 'ring-2 ring-slate-900 ring-offset-4' : ''}`}
                             aria-label={`${tr('שיעור', 'Lesson')} ${lesson.number}${done ? tr(' (הושלם)', ' (completed)') : ''}`}
                           >
                             {done ? <Star className="size-7 fill-white" /> : unlocked ? <Play className="size-7 fill-white" /> : <Lock className="size-6" />}
@@ -199,20 +213,6 @@ export function CourseMap({ onOpenLesson, onOpenItem, onOpenHandsFree }: Props) 
           );
         })}
       </ol>
-    </div>
-  );
-}
-
-function Stat({ icon, label, value, sub, children }: { icon: ReactNode; label: string; value: ReactNode; sub: string; children?: ReactNode }) {
-  return (
-    <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
-        {icon}
-        <span className="truncate">{label}</span>
-      </div>
-      <p className="mt-1 text-xl font-black text-slate-900 sm:text-2xl">{value}</p>
-      <p className="text-[11px] text-slate-500">{sub}</p>
-      {children}
     </div>
   );
 }

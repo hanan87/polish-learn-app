@@ -57,24 +57,25 @@ export function TopBar({ title, onOpenSettings, onOpenKasia }: { title: string; 
         </button>
       </div>
       <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 pb-2 sm:px-4">
-        <div className="flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-sm font-bold text-orange-600" title={tr('רצף ימי לימוד', 'Day streak')}>
-          <Flame className={`size-4 ${activeStreak > 0 ? 'fill-orange-400' : ''}`} aria-hidden />
-          <span>{activeStreak}</span>
-          <span className="text-xs font-medium">{tr('ימים', 'days')}</span>
+        <div className="flex items-center gap-1 text-sm text-slate-600" title={tr('רצף ימי לימוד', 'Day streak')}>
+          <Flame className={`size-4 ${activeStreak > 0 ? 'fill-amber-400 text-amber-600' : 'text-slate-400'}`} aria-hidden />
+          <span className="font-semibold text-slate-900 tabular-nums">{activeStreak}</span>
+          <span className="text-xs">{tr('ימים', 'days')}</span>
         </div>
-        <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-bold text-emerald-700" title={`${todayXp}/${state.dailyGoal} XP`}>
-          <Target className="size-4" aria-hidden />
-          <span>{goalPct}%</span>
-          <span className="text-xs font-medium">{tr('מהיעד', 'of goal')}</span>
+        <span className="h-3.5 w-px bg-slate-300" aria-hidden />
+        <div className="flex items-center gap-1 text-sm text-slate-600" title={`${todayXp}/${state.dailyGoal} XP`}>
+          <Target className="size-4 text-slate-400" aria-hidden />
+          <span className="font-semibold text-slate-900 tabular-nums">{goalPct}%</span>
+          <span className="text-xs">{tr('מהיעד', 'of goal')}</span>
         </div>
-        <div className="ms-auto flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-sm font-bold text-amber-700">
-          <Star className="size-4 fill-amber-400 text-amber-500" aria-hidden />
-          <span>{state.xp} XP</span>
-          <span className="text-xs font-medium">· {tr('רמה', 'Lv')} {level}</span>
+        <div className="ms-auto flex items-center gap-1 text-sm text-slate-600">
+          <Star className="size-4 text-slate-400" aria-hidden />
+          <span className="font-semibold text-slate-900 tabular-nums">{state.xp}</span>
+          <span className="text-xs">XP · {tr('רמה', 'Lv')} {level}</span>
         </div>
       </div>
-      <div className="h-0.5 bg-slate-100">
-        <div className="h-full bg-amber-400 transition-all" style={{ width: `${levelProgress * 100}%` }} />
+      <div className="h-px bg-slate-200">
+        <div className="h-full bg-rose-600 transition-all" style={{ width: `${levelProgress * 100}%` }} />
       </div>
     </header>
   );

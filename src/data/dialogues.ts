@@ -23,6 +23,8 @@ export interface RoleplayOption {
 
 export interface RoleplayTurn {
   line: { polish: string; t: Bilingual };
+  /** Overrides the scenario's partner voice for this line (e.g. the taxi driver vs the receptionist). */
+  voice?: 'f' | 'm';
   options: RoleplayOption[];
 }
 
@@ -31,6 +33,8 @@ export interface Roleplay {
   title: Bilingual;
   setting: Bilingual;
   partner: Bilingual;
+  /** Voice of the partner: 'f' Zofia, 'm' Marek. */
+  voice: 'f' | 'm';
   register: Formality;
   turns: RoleplayTurn[];
 }
@@ -58,6 +62,7 @@ export const ROLEPLAYS: Roleplay[] = [
       en: 'You walk into a café near the Old Town Square in Warsaw. The barista does not know you, so keep it formal.',
     },
     partner: { he: 'הבריסטה', en: 'Barista' },
+    voice: 'f',
     register: 'formal',
     turns: [
       {
@@ -106,6 +111,7 @@ export const ROLEPLAYS: Roleplay[] = [
       en: 'You are at the ticket office at Warszawa Centralna and need to get to Kraków.',
     },
     partner: { he: 'הקופאית', en: 'Ticket clerk' },
+    voice: 'f',
     register: 'formal',
     turns: [
       {
@@ -153,6 +159,7 @@ export const ROLEPLAYS: Roleplay[] = [
       en: 'You landed in Warsaw, took a taxi to your hotel – and finally reach the reception desk.',
     },
     partner: { he: 'הנהג / פקידת הקבלה', en: 'Driver / Receptionist' },
+    voice: 'm',
     register: 'formal',
     turns: [
       {
@@ -178,6 +185,7 @@ export const ROLEPLAYS: Roleplay[] = [
       },
       {
         line: line('Dobry wieczór! W czym mogę pomóc?', 'ערב טוב! במה אוכל לעזור?', 'Good evening! How can I help?'),
+        voice: 'f',
         options: [
           ok('Dobry wieczór, mam rezerwację na nazwisko Kohen.', 'ערב טוב, יש לי הזמנה על שם כהן.', 'Good evening, I have a reservation under the name Kohen.', 'מושלם לדלפק קבלה.', 'Perfect for a reception desk.'),
           no('Cześć! Co tam?', 'היי! מה קורה?', "Hi! What's up?", 'חברי מדי לפקידת קבלה.', 'Far too casual for a receptionist.'),
@@ -185,6 +193,7 @@ export const ROLEPLAYS: Roleplay[] = [
       },
       {
         line: line('Pokój numer dwanaście. Śniadanie jest od siódmej.', 'חדר מספר שתים-עשרה. ארוחת הבוקר מהשעה שבע.', 'Room number twelve. Breakfast is from seven.'),
+        voice: 'f',
         options: [
           ok('Dziękuję bardzo!', 'תודה רבה!', 'Thank you very much!', 'נכון – תודה פשוטה וחמה.', 'Right – a simple, warm thank you.'),
           no('Poproszę kawę.', 'אבקש קפה.', "I'd like a coffee.", 'הקפה יחכה לבוקר – עכשיו מודים.', 'Coffee can wait for breakfast – now just say thanks.'),
@@ -200,6 +209,7 @@ export const ROLEPLAYS: Roleplay[] = [
       en: 'At a work party you ({name} from Israel) meet Marta. Start formally – and wait for her to offer switching to ty.',
     },
     partner: { he: 'מרתה', en: 'Marta' },
+    voice: 'f',
     register: 'formal',
     turns: [
       {

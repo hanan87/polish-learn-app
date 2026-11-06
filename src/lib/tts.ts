@@ -1,6 +1,12 @@
 /**
- * Polish text-to-speech on top of window.speechSynthesis.
+ * Polish speech output.
  *
+ * Order of preference for every phrase:
+ *   1. a pre-recorded neural clip (lib/voiceClips – Azure Zofia / Marek), unless the learner turned it off
+ *   2. the device voice the learner picked in Settings
+ *   3. the best Polish device voice we can find (Edge "Natural", Google, iOS Enhanced…)
+ *
+ * Device-voice notes:
  * Cross-browser notes:
  *  - Voices load asynchronously (Chrome fires `voiceschanged`; iOS often returns them only after first use).
  *  - Chrome may garbage-collect an utterance mid-speech so `onend` never fires: keep a module-level reference.
@@ -9,6 +15,7 @@
  */
 
 import { ttsSupported } from './env';
+import { clipPlaying, findClip, playClip, stopClip, type ClipVoice } from './voiceClips';
 
 export const RATE_NORMAL = 1.0;
 export const RATE_SLOW = 0.6;
@@ -18,12 +25,49 @@ let cachedVoice: SpeechSynthesisVoice | null | undefined;
 let activeUtterance: SpeechSynthesisUtterance | null = null;
 let cancelToken = 0;
 
+const VOICE_PREF_KEY = 'polish-learn:device-voice';
+
+/** Quality rank of a device voice: neural "Natural" voices first, robotic legacy voices last. */
+export function voiceRank(v: { name: string; localService?: boolean }): number {
+  const n = v.name;
+  if (/natural|neural/i.test(n)) return 0;
+  if (/premium|enhanced|siri/i.test(n)) return 1;
+  if (/online/i.test(n)) return 2;
+  if (/google/i.test(n)) return 3;
+  return v.localService === false ? 4 : 5;
+}
+
+export function polishVoices(): SpeechSynthesisVoice[] {
+  if (!ttsSupported) return [];
+  return window.speechSynthesis
+    .getVoices()
+    .filter((v) => v.lang?.toLowerCase().replace('_', '-').startsWith('pl'))
+    .sort((a, b) => voiceRank(a) - voiceRank(b) || a.name.localeCompare(b.name));
+}
+
+export function getPreferredVoiceURI(): string | null {
+  try {
+    return localStorage.getItem(VOICE_PREF_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setPreferredVoiceURI(uri: string | null): void {
+  try {
+    if (uri) localStorage.setItem(VOICE_PREF_KEY, uri);
+    else localStorage.removeItem(VOICE_PREF_KEY);
+  } catch {
+    // Storage disabled: keep the in-memory choice only.
+  }
+  cachedVoice = undefined;
+}
+
 function findPolishVoice(): SpeechSynthesisVoice | null {
-  const voices = window.speechSynthesis.getVoices();
-  const polish = voices.filter((v) => v.lang?.toLowerCase().replace('_', '-').startsWith('pl'));
+  const polish = polishVoices();
   if (!polish.length) return null;
-  // Prefer high-quality network voices (e.g. "Google polski"), then local ones.
-  return polish.find((v) => /google|natural|online|enhanced|premium/i.test(v.name)) ?? polish[0];
+  const preferred = getPreferredVoiceURI();
+  return (preferred && polish.find((v) => v.voiceURI === preferred)) || polish[0];
 }
 
 export function loadVoices(timeoutMs = 2000): Promise<SpeechSynthesisVoice | null> {
@@ -51,13 +95,40 @@ export function hasPolishVoice(): boolean {
 
 export function stopSpeaking(): void {
   cancelToken++;
+  stopClip();
   if (ttsSupported) window.speechSynthesis.cancel();
   activeUtterance = null;
 }
 
-/** Speak Polish text. Resolves when speech ends (or is cancelled). */
-export function speak(text: string, rate: number = RATE_NORMAL): Promise<void> {
+/** True while a clip or the device voice is talking (the microphone engine waits for silence). */
+export function isSpeaking(): boolean {
+  return clipPlaying() || (ttsSupported && (window.speechSynthesis.speaking || window.speechSynthesis.pending));
+}
+
+/** Who says the phrase in stories / conversations: female (Zofia, default teacher) or male (Marek). */
+export type Speaker = 'f' | 'm';
+
+/**
+ * Speak Polish text. Resolves when speech ends (or is cancelled).
+ * Slow rates use the clip synthesized slowly; other rates play the normal clip at that speed.
+ */
+export async function speak(text: string, rate: number = RATE_NORMAL, speaker: Speaker = 'f'): Promise<void> {
+  if (!text.trim()) return;
+  const slow = rate <= 0.7;
+  const voice: ClipVoice = speaker === 'm' ? 'pl-m' : 'pl-f';
+  const clip = findClip(text, slow ? 's' : 'n', voice);
+  if (clip) {
+    if (ttsSupported) window.speechSynthesis.cancel();
+    const played = await playClip(clip, slow ? 1 : Math.max(0.7, Math.min(1.2, rate)));
+    if (played) return;
+  }
+  return speakDevice(text, rate);
+}
+
+/** Device-voice speech (window.speechSynthesis). */
+function speakDevice(text: string, rate: number): Promise<void> {
   if (!ttsSupported || !text.trim()) return Promise.resolve();
+  stopClip();
   const synth = window.speechSynthesis;
   synth.cancel();
   synth.resume();
@@ -98,7 +169,13 @@ export function findVoiceFor(prefix: string): SpeechSynthesisVoice | null {
  * Speak a translation in the learner's language (Hebrew or English).
  * Resolves false without speaking when the device has no voice for that language.
  */
-export function speakNative(text: string, lang: 'he' | 'en', rate = 1): Promise<boolean> {
+export async function speakNative(text: string, lang: 'he' | 'en', rate = 1): Promise<boolean> {
+  const clip = findClip(text, 'n', lang);
+  if (clip && (await playClip(clip, rate))) return true;
+  return speakNativeDevice(text, lang, rate);
+}
+
+function speakNativeDevice(text: string, lang: 'he' | 'en', rate: number): Promise<boolean> {
   const voice = findVoiceFor(lang === 'he' ? 'he' : 'en');
   // Older engines report Hebrew as "iw".
   const fallback = lang === 'he' ? findVoiceFor('iw') : null;
@@ -138,12 +215,13 @@ export async function speakSequence(
   rate: number,
   onStep?: (index: number) => void,
   gapMs = 650,
+  speakers?: Speaker[],
 ): Promise<boolean> {
   const token = ++cancelToken;
   for (let i = 0; i < texts.length; i++) {
     if (token !== cancelToken) return false;
     onStep?.(i);
-    await speak(texts[i], rate);
+    await speak(texts[i], rate, speakers?.[i] ?? 'f');
     if (token !== cancelToken) return false;
     if (i < texts.length - 1) await wait(gapMs);
   }

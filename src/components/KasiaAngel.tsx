@@ -6,37 +6,11 @@ import { haptic } from '../lib/haptics';
 import { MusicBox } from '../lib/musicBox';
 import { speakSequence, stopSpeaking } from '../lib/tts';
 import { useProgress } from '../state/ProgressContext';
+import { KASIA_COMPLIMENTS, KASIA_DEDICATION, KASIA_TITLE, type KasiaLine as Line } from '../data/kasia';
+
+export { KASIA_COMPLIMENTS, KASIA_DEDICATION, KASIA_TITLE };
 
 /** "Dla Kasi" – a personal dedication screen: night sky, angel wings, music box and love notes. */
-
-interface Line {
-  pl: string;
-  he: string;
-  en: string;
-}
-
-export const KASIA_TITLE: Line = {
-  pl: 'Kasiu, jesteś moim małym aniołkiem',
-  he: 'קאשה, את המלאכית הקטנה שלי',
-  en: 'Kasia, you are my little angel',
-};
-
-export const KASIA_DEDICATION: Line = {
-  pl: 'Stworzyłem tę aplikację specjalnie dla Ciebie. Uczę się każdego polskiego słowa, bo bardzo Cię kocham i chcę być bliżej Ciebie. Jesteś moim najpiękniejszym powodem do nauki!',
-  he: 'בניתי את האפליקציה הזו במיוחד בשבילך. אני לומד כל מילה בפולנית כי אני אוהב אותך כל כך ורוצה להיות קרוב יותר אלייך. את הסיבה הכי יפה שלי ללמוד!',
-  en: 'I built this app especially for you. I am learning every Polish word because I love you so much and want to be closer to you. You are my most beautiful reason to learn!',
-};
-
-export const KASIA_COMPLIMENTS: Line[] = [
-  { pl: 'Twój uśmiech to mój ulubiony język.', he: 'החיוך שלך הוא השפה האהובה עליי.', en: 'Your smile is my favourite language.' },
-  { pl: 'Jesteś moim aniołem stróżem.', he: 'את המלאך השומר שלי.', en: 'You are my guardian angel.' },
-  { pl: 'Kasieńko, kocham Cię najbardziej na świecie.', he: 'קאשנקו, אני אוהב אותך יותר מכל דבר בעולם.', en: 'Kasieńka, I love you more than anything in the world.' },
-  { pl: 'Przy Tobie każdy dzień jest piękniejszy.', he: 'לצידך כל יום יפה יותר.', en: 'With you, every day is more beautiful.' },
-  { pl: 'Twoje oczy świecą jaśniej niż gwiazdy.', he: 'העיניים שלך זורחות יותר מהכוכבים.', en: 'Your eyes shine brighter than the stars.' },
-  { pl: 'Jesteś najsłodszą dziewczyną na świecie.', he: 'את הבחורה הכי מתוקה בעולם.', en: 'You are the sweetest girl in the world.' },
-  { pl: 'Myślę o Tobie od rana do nocy.', he: 'אני חושב עלייך מהבוקר עד הלילה.', en: 'I think of you from morning till night.' },
-  { pl: 'Jesteś całym moim szczęściem.', he: 'את כל האושר שלי.', en: 'You are all my happiness.' },
-];
 
 type TrMode = 'pl' | 'he' | 'en';
 
@@ -185,7 +159,8 @@ export function KasiaAngel({ onClose }: { onClose: () => void }) {
       return;
     }
     setReading(true);
-    await speakSequence(lines, 0.85, undefined, 450);
+    // The dedication is written by a man (Stworzyłem…), so Marek reads it.
+    await speakSequence(lines, 0.9, undefined, 450, lines.map(() => 'm' as const));
     setReading(false);
   };
 
@@ -206,7 +181,7 @@ export function KasiaAngel({ onClose }: { onClose: () => void }) {
     setCard(next);
     setCardKey((k) => k + 1);
     setReading(true);
-    speakSequence([KASIA_COMPLIMENTS[next].pl], 0.85).then(() => setReading(false));
+    speakSequence([KASIA_COMPLIMENTS[next].pl], 0.9, undefined, 0, ['m']).then(() => setReading(false));
   };
 
   const t = (l: Line) => (trMode === 'pl' ? null : l[trMode]);

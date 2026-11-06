@@ -7,7 +7,8 @@ export const isIOS =
 
 export const isAndroid = /Android/i.test(ua);
 
-export const isStandaloneBuild = import.meta.env.MODE === 'standalone';
+// Optional chaining keeps this module importable from Node scripts (scripts/gen-voice.ts).
+export const isStandaloneBuild = import.meta.env?.MODE === 'standalone';
 
 export const isInIframe = (() => {
   try {

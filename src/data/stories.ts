@@ -34,7 +34,6 @@ export interface Story {
   id: string;
   title: Bi;
   titlePl: string;
-  emoji: string;
   blurb: Bi;
   lines: StoryLine[];
   glossary: Record<string, GlossEntry>;
@@ -78,7 +77,6 @@ export const STORIES: Story[] = [
     id: 'kawa-dla-kota',
     title: { he: 'קפה בשביל החתול', en: 'Coffee for the cat' },
     titlePl: 'Kawa dla kota',
-    emoji: '☕',
     blurb: { he: 'תומק מזמין קפה עם חלב… למי בדיוק?', en: 'Tomek orders coffee with milk… for whom exactly?' },
     lines: [
       L('Kelnerka', 'Dzień dobry! Co podać?', 'יום טוב! מה להגיש?', 'Hello! What can I get you?'),
@@ -122,7 +120,6 @@ export const STORIES: Story[] = [
     id: 'pierogi-babci',
     title: { he: 'הפירוגי של סבתא', en: "Grandma's pierogi" },
     titlePl: 'Pierogi babci',
-    emoji: '🥟',
     blurb: { he: 'אצל סבתא פולנייה אי אפשר להגיד "די".', en: 'At a Polish grandma’s you cannot say "enough".' },
     lines: [
       L('Babcia', 'Kuba, jesteś głodny?', 'קובה, אתה רעב?', 'Kuba, are you hungry?'),
@@ -161,7 +158,6 @@ export const STORIES: Story[] = [
     id: 'gdzie-jest-bilet',
     title: { he: 'איפה הכרטיס?', en: 'Where is the ticket?' },
     titlePl: 'Gdzie jest bilet?',
-    emoji: '🎫',
     blurb: { he: 'ביקורת כרטיסים ברכבת, ואולה מחפשת בכל מקום.', en: 'A ticket check on the train, and Ola searches everywhere.' },
     lines: [
       L('Konduktor', 'Dzień dobry, bilety do kontroli!', 'יום טוב, כרטיסים לביקורת!', 'Good morning, tickets please!'),
@@ -198,7 +194,6 @@ export const STORIES: Story[] = [
     id: 'parasol',
     title: { he: 'המטרייה', en: 'The umbrella' },
     titlePl: 'Parasol',
-    emoji: '☂️',
     blurb: { he: 'יום שמשי בקרקוב… לכמה דקות.', en: 'A sunny day in Kraków… for a few minutes.' },
     lines: [
       L('Marek', 'Jaka ładna pogoda!', 'איזה מזג אוויר יפה!', 'What lovely weather!'),
@@ -241,6 +236,20 @@ export const STORIES: Story[] = [
     ],
   },
 ];
+
+/** Voice for each story character: Marek reads the men, Zofia the women. */
+export const SPEAKER_VOICE: Record<string, 'f' | 'm'> = {
+  Kelnerka: 'f',
+  Tomek: 'm',
+  Babcia: 'f',
+  Kuba: 'm',
+  Konduktor: 'm',
+  Ola: 'f',
+  Marek: 'm',
+  Ania: 'f',
+};
+
+export const speakerVoice = (speaker: string): 'f' | 'm' => SPEAKER_VOICE[speaker] ?? 'f';
 
 /** Lower-case word without surrounding punctuation – the glossary key. */
 export function wordKey(token: string): string {

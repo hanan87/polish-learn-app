@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, BedDouble, Coffee, Handshake, Mic, RotateCcw, TrainFront, Trophy, User, Volume2, XCircle, type LucideIcon } from 'lucide-react';
 import { ROLEPLAYS, type Roleplay as RoleplayT, type RoleplayOption } from '../data/dialogues';
 import { STORIES } from '../data/stories';
+import { StoryIcon } from '../components/StoryIcon';
 import { FormalityBadge } from '../components/FormalityBadge';
 import { Phonetic } from '../components/Phonetic';
 import { PolishSyllables } from '../components/PolishSyllables';
@@ -48,8 +49,8 @@ export function Roleplay({ onOpenStory }: { onOpenStory: (id: string) => void })
                   onClick={() => onOpenStory(s.id)}
                   className="flex h-full w-full flex-col items-start gap-1 rounded-2xl bg-white p-3 text-start shadow-sm ring-1 ring-slate-200 transition hover:ring-amber-300 active:scale-[0.98]"
                 >
-                  <span className="text-2xl" aria-hidden>
-                    {s.emoji}
+                  <span className="grid size-9 place-items-center rounded-lg bg-slate-100 text-slate-700">
+                    <StoryIcon id={s.id} className="size-[18px]" />
                   </span>
                   <span className="text-sm leading-tight font-bold text-slate-900">{s.title[lang]}</span>
                   <span className="polish text-xs text-slate-500" dir="ltr">
@@ -112,6 +113,8 @@ export function Roleplay({ onOpenStory }: { onOpenStory: (id: string) => void })
 
 interface Turn {
   speaker: 'partner' | 'me';
+  /** Clip voice: the partner's, or the learner's own gender for replies. */
+  voice: 'f' | 'm';
   polish: string;
   he: string;
   en: string;
@@ -130,7 +133,7 @@ function AltNote({ template, me }: { template: string; me: boolean }) {
   return (
     <p className="text-[11px] text-violet-700" data-testid="gender-alt">
       {label}{' '}
-      <button type="button" onClick={() => speak(a.polish)} className="polish font-bold underline decoration-violet-300" dir="ltr">
+      <button type="button" onClick={() => speak(a.polish, 1, a.gender)} className="polish font-bold underline decoration-violet-300" dir="ltr">
         {a.polish}
       </button>
     </p>
@@ -152,7 +155,7 @@ function Bubble({ entry, partnerName }: { entry: Turn; partnerName: string }) {
           {me ? tr('אתם', 'You') : partnerName}
           {entry.score !== undefined && <span className="rounded-full bg-emerald-100 px-1.5 font-bold text-emerald-700">{entry.score}%</span>}
         </p>
-        <button type="button" onClick={() => speak(polish)} className="flex items-start gap-1.5 text-start">
+        <button type="button" onClick={() => speak(polish, 1, entry.voice)} className="flex items-start gap-1.5 text-start">
           <PolishSyllables notation={toSyllableNotation(polish)} size="sm" showDots={false} />
           <Volume2 className="mt-1 size-4 shrink-0 text-slate-400" />
         </button>
@@ -167,7 +170,7 @@ function Bubble({ entry, partnerName }: { entry: Turn; partnerName: string }) {
 function RoleplayRunner({ scenario, onExit }: { scenario: RoleplayT; onExit: () => void }) {
   const { completeDialogue } = useProgress();
   const { tr, lang, dir } = useLang();
-  const { pl, tx } = usePersonal();
+  const { pl, tx, gender } = usePersonal();
   const [turn, setTurn] = useState(0);
   const [answers, setAnswers] = useState<Turn[]>([]);
   const [picked, setPicked] = useState<RoleplayOption | null>(null);
@@ -186,14 +189,14 @@ function RoleplayRunner({ scenario, onExit }: { scenario: RoleplayT; onExit: () 
   const log = useMemo(() => {
     const entries: Turn[] = [];
     scenario.turns.slice(0, turn + 1).forEach((t, i) => {
-      entries.push({ speaker: 'partner', polish: t.line.polish, he: t.line.t.he, en: t.line.t.en });
+      entries.push({ speaker: 'partner', voice: t.voice ?? scenario.voice, polish: t.line.polish, he: t.line.t.he, en: t.line.t.en });
       if (answers[i]) entries.push(answers[i]);
     });
     return entries;
   }, [scenario, turn, answers]);
 
   useEffect(() => {
-    if (current && !finished) speak(pl(current.line.polish));
+    if (current && !finished) speak(pl(current.line.polish), 1, current.voice ?? scenario.voice);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, finished]);
 
@@ -210,7 +213,7 @@ function RoleplayRunner({ scenario, onExit }: { scenario: RoleplayT; onExit: () 
     if (opt.correct) {
       setWrongPick(null);
       setPicked(opt);
-      speak(pl(opt.polish), 0.9);
+      speak(pl(opt.polish), 0.9, gender);
     } else {
       setWrongPick(opt);
     }
@@ -220,7 +223,7 @@ function RoleplayRunner({ scenario, onExit }: { scenario: RoleplayT; onExit: () 
     if (!picked) return;
     setAnswers((a) => {
       const copy = [...a];
-      copy[turn] = { speaker: 'me', polish: picked.polish, he: picked.t.he, en: picked.t.en, score };
+      copy[turn] = { speaker: 'me', voice: gender, polish: picked.polish, he: picked.t.he, en: picked.t.en, score };
       return copy;
     });
     setPicked(null);

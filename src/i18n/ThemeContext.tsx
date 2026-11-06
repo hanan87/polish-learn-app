@@ -42,7 +42,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle('dark', resolved === 'dark');
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'dark' ? '#0f172a' : '#e11d48');
+    // Browser chrome follows the app's paper / ink surfaces (both media-specific tags get the chosen theme).
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', resolved === 'dark' ? '#1b1a18' : '#f7f5f0'));
   }, [resolved]);
 
   const setChoice = useCallback((c: ThemeChoice) => {

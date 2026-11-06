@@ -127,7 +127,7 @@ export function LessonPlayer({ lessonId, onClose }: Props) {
   if (done) {
     const earned = progress.state.xp - startXp.current;
     return (
-      <div className="fixed inset-0 z-50 flex min-h-dvh flex-col items-center justify-center gap-6 bg-gradient-to-b from-amber-50 to-white p-6 text-center">
+      <div className="fixed inset-0 z-50 flex min-h-dvh flex-col items-center justify-center gap-6 bg-slate-50 p-6 text-center">
         {isPractice ? <Dumbbell className="size-20 text-indigo-500" /> : <Trophy className="size-20 text-amber-500" />}
         <div>
           <p className="text-3xl font-black text-slate-900">{isPractice ? tr('האימון הושלם!', 'Session complete!') : tr('השיעור הושלם!', 'Lesson complete!')}</p>

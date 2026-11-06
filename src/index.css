@@ -1,15 +1,12 @@
 @import 'tailwindcss';
-@import './dark.css';
-
-@theme {
-  --font-sans: 'Rubik Variable', 'Rubik', 'Segoe UI', 'Arial Hebrew', system-ui, sans-serif;
-}
+/* "Atlas" design tokens: palette, type, radii, shadows – light and dark (scripts/gen-theme.mjs). */
+@import './theme.css';
 
 /* `dark:` variant follows the .dark class on <html> (set by ThemeContext), not the OS setting directly. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Dark mode surface fixes. The palette itself is remapped in dark.css; these unlayered rules
+ * Dark mode surface fixes. The palette itself is remapped in theme.css; these unlayered rules
  * (they win over Tailwind's layered utilities) handle the few places where white is used as a
  * surface or where light text sits on a slate button that became light.
  */
@@ -50,10 +47,85 @@
   body {
     overscroll-behavior-y: none;
     color: var(--color-slate-800);
+    font-feature-settings: 'kern', 'liga';
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Editorial hierarchy: serif display headings over a quiet sans interface. */
+  h1,
+  h2 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.012em;
+    color: var(--color-slate-900);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-slate-900);
+    outline-offset: 2px;
   }
   button {
     cursor: pointer;
     touch-action: manipulation;
+  }
+}
+
+/* Heavy display weights read as shouting in a serif; keep headings firm but calm. */
+h1.font-black,
+h2.font-black,
+.font-serif.font-black {
+  font-weight: 650;
+}
+
+@layer components {
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-xl);
+    background: var(--color-slate-900);
+    color: var(--color-slate-50);
+    padding: 0.75rem 1.1rem;
+    font-weight: 600;
+    transition:
+      background-color 150ms,
+      transform 150ms;
+  }
+  .btn-primary:hover {
+    background: var(--color-slate-800);
+  }
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+  .btn-primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-slate-300);
+    color: var(--color-slate-800);
+    padding: 0.55rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background-color 150ms;
+  }
+  .btn-secondary:hover {
+    background: var(--color-slate-100);
+  }
+  .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  /* Small section label above a heading ("eyebrow"). */
+  .eyebrow {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-slate-500);
   }
 }
 

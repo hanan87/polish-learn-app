@@ -67,7 +67,7 @@ export function PolishKeyboard({ inputRef, value, onChange }: Props) {
   };
 
   const keyCls =
-    'polish grid h-12 place-items-center rounded-xl bg-white text-xl font-semibold text-slate-900 shadow-[0_2px_0_rgba(15,23,42,0.15)] ring-1 ring-slate-200 active:translate-y-0.5 active:shadow-none active:bg-rose-50';
+    'polish grid h-12 place-items-center rounded-xl bg-white text-xl font-semibold text-slate-900 shadow-xs ring-1 ring-slate-200 transition active:scale-95 active:bg-slate-100';
   const press = (fn: () => void) => ({
     onPointerDown: (e: PointerEvent) => {
       e.preventDefault();

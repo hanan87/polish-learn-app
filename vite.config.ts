@@ -89,8 +89,8 @@ export default defineConfig(({ mode }) => {
           scope: './',
           display: 'standalone',
           orientation: 'portrait',
-          background_color: '#f8fafc',
-          theme_color: '#e11d48',
+          background_color: '#f7f5f0',
+          theme_color: '#f7f5f0',
           icons: [
             { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
             { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
@@ -108,6 +108,25 @@ export default defineConfig(({ mode }) => {
           // The standalone HTML is a download, not part of the app shell.
           globIgnores: ['**/polish-learn-standalone.html'],
           maximumFileSizeToCacheInBytes: 5_000_000,
+          // Natural-voice clips are not precached (several MB): each is cached the first time it plays,
+          // or all at once from Settings → "Save the voice for offline use".
+          runtimeCaching: [
+            {
+              urlPattern: /\/audio\/[0-9a-f]+\.mp3$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'voice-clips',
+                rangeRequests: true,
+                cacheableResponse: { statuses: [0, 200] },
+                expiration: { maxEntries: 4000 },
+              },
+            },
+            {
+              urlPattern: /\/audio\/manifest\.json$/,
+              handler: 'NetworkFirst',
+              options: { cacheName: 'voice-manifest', networkTimeoutSeconds: 3 },
+            },
+          ],
         },
       }),
     ],

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
-import { Download, FileJson, Mic, Moon, RotateCcw, Smartphone, Target, Upload, UserRound, Vibrate } from 'lucide-react';
+import { Download, FileJson, Mic, Moon, RotateCcw, Smartphone, Target, Upload, UserRound, Vibrate, Volume2 } from 'lucide-react';
 import { ProfileFields } from '../components/ProfileFields';
+import { VoiceSettings } from '../components/VoiceSettings';
 import { haptic, hapticsSupported, setHapticsEnabled } from '../lib/haptics';
 import { useLang } from '../i18n/LangContext';
 import { useTheme, type ThemeChoice } from '../i18n/ThemeContext';
@@ -74,6 +75,13 @@ export function Settings() {
           <UserRound className="size-4 text-rose-600" /> {tr('הפרופיל שלי', 'My profile')}
         </p>
         <ProfileFields lang={lang} profile={state.profile} onChange={setProfile} />
+      </section>
+
+      <section className={card}>
+        <p className="flex items-center gap-1.5 font-bold">
+          <Volume2 className="size-4 text-rose-600" /> {tr('קול המורה', 'Teacher voice')}
+        </p>
+        <VoiceSettings />
       </section>
 
       <section className={card}>
