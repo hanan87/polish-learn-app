@@ -9,3 +9,8 @@ public/polish-learn-standalone.html
 test-results/
 tests/e2e/report/
 tests/e2e/screens/
+
+# Local secrets (Azure Speech key for scripts/gen-voice.mjs) – never committed.
+.env
+.env.*
+*.local

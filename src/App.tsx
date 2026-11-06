@@ -18,6 +18,11 @@ import { Settings } from './views/Settings';
 import { SoundLab } from './views/SoundLab';
 import { VocabReview } from './views/VocabReview';
 import { Welcome } from './views/Welcome';
+import { HandsFree } from './views/HandsFree';
+import { SpeedBlitz } from './views/SpeedBlitz';
+import { StoryPlayer } from './views/StoryPlayer';
+import { getStory } from './data/stories';
+import { KasiaAngel } from './components/KasiaAngel';
 
 const TAB_IDS = TABS.map((t) => t.id);
 
@@ -29,6 +34,10 @@ const TAB_IDS = TABS.map((t) => t.id);
  *   #/lab/group/<groupId>                      – Sound Lab opened on a contrast group
  *   #/lesson/<lessonId>                        – full-screen lesson
  *   #/lesson/practice                          – personalized reinforcement lesson
+ *   #/handsfree/<map|vocab>                    – audio-only trainer
+ *   #/story/<storyId>                          – mini story
+ *   #/blitz                                    – 60-second Speed Blitz
+ *   #/<tab>/kasia                              – "Dla Kasi" dedication screen
  */
 export function App() {
   const { segments, navigate } = useHashRoute('map');
@@ -49,10 +58,19 @@ export function App() {
   const itemId = segments[1] === 'item' ? segments[2] : undefined;
   const item = itemId ? getItem(itemId) : undefined;
   const settingsOpen = segments[1] === 'settings';
+  const kasiaOpen = segments[1] === 'kasia';
 
   const openItem = (id: string) => navigate(`${tab}/item/${id}`);
   const closeSheet = () => navigate(tab, true);
   const tabInfo = TABS.find((t) => t.id === tab)!;
+
+  if (segments[0] === 'handsfree') {
+    const source = segments[1] === 'vocab' ? 'vocab' : 'map';
+    return <HandsFree key={source} source={source} onExit={() => navigate(source, true)} />;
+  }
+  if (segments[0] === 'blitz') return <SpeedBlitz onExit={() => navigate('vocab', true)} />;
+  const story = segments[0] === 'story' ? getStory(segments[1] ?? '') : undefined;
+  if (story) return <StoryPlayer key={story.id} story={story} onExit={() => navigate('talk', true)} />;
 
   if (isLesson) {
     return <LessonPlayer key={segments[1]} lessonId={segments[1]} onClose={() => navigate(segments[1] === 'practice' ? 'vocab' : 'map', true)} />;
@@ -61,7 +79,7 @@ export function App() {
   return (
     <div className="flex min-h-dvh flex-col">
       {mic.blocked && mic.status !== 'no-device' && <StandaloneDownload />}
-      <TopBar title={tabInfo[lang]} onOpenSettings={() => navigate(`${tab}/settings`)} />
+      <TopBar title={tabInfo[lang]} onOpenSettings={() => navigate(`${tab}/settings`)} onOpenKasia={() => navigate(`${tab}/kasia`)} />
       {voiceMissing && (
         <p className="mx-auto mt-2 w-full max-w-3xl px-4 text-xs text-amber-700">
           {tr(
@@ -71,15 +89,22 @@ export function App() {
         </p>
       )}
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 pt-4 pb-28">
-        {tab === 'map' && <CourseMap onOpenLesson={(id) => navigate(`lesson/${id}`)} onOpenItem={openItem} />}
+        {tab === 'map' && <CourseMap onOpenLesson={(id) => navigate(`lesson/${id}`)} onOpenItem={openItem} onOpenHandsFree={() => navigate('handsfree/map')} />}
         {tab === 'lab' && <SoundLab key={segments[2] ?? 'lab'} onOpenItem={openItem} initialGroup={segments[1] === 'group' ? segments[2] : undefined} />}
-        {tab === 'vocab' && <VocabReview onOpenItem={openItem} onStartPractice={() => navigate('lesson/practice')} onOpenSoundGroup={(g) => navigate(`lab/group/${g}`)} />}
-        {tab === 'talk' && <Roleplay />}
+        {tab === 'vocab' && <VocabReview
+            onOpenItem={openItem}
+            onStartPractice={() => navigate('lesson/practice')}
+            onOpenSoundGroup={(g) => navigate(`lab/group/${g}`)}
+            onOpenHandsFree={() => navigate('handsfree/vocab')}
+            onOpenBlitz={() => navigate('blitz')}
+          />}
+        {tab === 'talk' && <Roleplay onOpenStory={(id) => navigate(`story/${id}`)} />}
       </main>
       <BottomNav active={tab} onChange={(t) => navigate(t)} dueCount={dueItemIds().length} />
       <Sheet open={!!item} onClose={closeSheet} title={item?.polish}>
         {item && <ItemDetail key={item.id} item={item} />}
       </Sheet>
+      {kasiaOpen && <KasiaAngel onClose={closeSheet} />}
       <Sheet open={settingsOpen} onClose={closeSheet} title={tr('הגדרות', 'Settings')}>
         <Settings />
       </Sheet>

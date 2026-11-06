@@ -3,6 +3,7 @@ import { itemText, type LearningItem } from '../data/types';
 import { useLang } from '../i18n/LangContext';
 import { useProgress } from '../state/ProgressContext';
 import { FormalityBadge } from './FormalityBadge';
+import { GenderNote } from './GenderNote';
 import { ItemStats } from './ItemStats';
 import { Phonetic } from './Phonetic';
 import { PolishSyllables } from './PolishSyllables';
@@ -33,6 +34,8 @@ export function ItemDetail({ item, showPractice = true, showLearnButton = true }
         <Phonetic he={item.phoneticHebrew} en={item.phoneticEnglish} size="lg" />
         <p className="text-lg font-medium text-slate-600">{text.meaning}</p>
       </div>
+
+      <GenderNote item={item} />
 
       <SpeakControls text={item.polish} backchainingSteps={item.backchainingSteps} />
 

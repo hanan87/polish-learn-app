@@ -11,6 +11,7 @@
  */
 
 import type { Lang } from '../i18n/LangContext';
+import type { Gender } from '../lib/personalize';
 
 export type Formality = 'formal' | 'casual' | 'neutral';
 
@@ -40,6 +41,8 @@ export interface ItemSource {
   formality: Formality;
   soundTags?: SoundTag[];
   culturalNote?: string;
+  /** Hand-written English respelling (otherwise generated from the Polish text). */
+  phoneticEnglish?: string;
 }
 
 /** Complete bilingual item used by the app. */
@@ -50,6 +53,8 @@ export interface LearningItem extends ItemSource {
   culturalNoteEn?: string;
   /** True for words the learner added to the personal dictionary. */
   custom?: boolean;
+  /** Set on gender-dependent items: how a speaker of the other gender says the same thing. */
+  genderAlt?: { gender: Gender; polish: string; hebrew: string; english: string };
 }
 
 export type UnitColor = 'rose' | 'amber' | 'sky' | 'emerald' | 'violet' | 'orange' | 'red' | 'teal';

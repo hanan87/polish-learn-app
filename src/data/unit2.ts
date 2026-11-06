@@ -134,16 +134,17 @@ export const unit2: UnitSource = {
     },
     {
       id: 'u2-11',
-      polish: 'Mam na imię Dawid',
-      syllablesPolish: '[mam] na [i]·mię [Da]·wid',
-      hebrew: 'קוראים לי דוד',
-      phoneticHebrew: '[מָאם] נָא [אִי]·מְיֶה [דָא]·בִיט',
+      polish: 'Mam na imię {name}',
+      syllablesPolish: '[mam] na [i]·mię {name}',
+      hebrew: 'קוראים לי {name}',
+      phoneticHebrew: '[מָאם] נָא [אִי]·מְיֶה {name}',
+      phoneticEnglish: '[mahm] nah [ee]·myeh {name}',
       articulationTip:
-        'imię – m רכה: "מְיֶה", ו-ę בסוף נשמעת e. ושימו לב: d בסוף מילה מאבדת קוליות – Dawid נשמע "דָאבִיט".',
-      backchainingSteps: ['Dawid', 'imię Dawid', 'Mam na imię Dawid'],
+        'imię – m רכה: "מְיֶה", ו-ę בסוף נשמעת e. ושימו לב: עיצור קולי בסוף מילה מאבד קוליות – Dawid נשמע "דָאבִיט".',
+      backchainingSteps: ['{name}', 'imię {name}', 'Mam na imię {name}'],
       formality: 'neutral',
-      soundTags: ['devoicing', 'nasal', 'w'],
-      culturalNote: 'החליפו את Dawid בשם שלכם. דרך רשמית יותר להציג את שם המשפחה: Nazywam się… ("שמי…").',
+      soundTags: ['nasal'],
+      culturalNote: 'המשפט משתמש בשם שבחרתם בהגדרות (באותיות לטיניות). דרך רשמית יותר להציג את שם המשפחה: Nazywam się… ("שמי…").',
     },
     {
       id: 'u2-12',
@@ -180,6 +181,20 @@ export const unit2: UnitSource = {
       soundTags: ['devoicing', 'cluster', 'y-vowel'],
       culturalNote:
         'המעבר מ-Pan/Pani ל-ty הוא טקס קטן: בדרך כלל המבוגר יותר, הבכיר יותר או האישה מציעים אותו, ולעיתים הוא מלווה בהרמת כוסית. אל תעברו ל-ty על דעת עצמכם.',
+    },
+    {
+      id: 'u2-15',
+      polish: 'Chciał{bym|abym} się przedstawić',
+      syllablesPolish: '{[chciał]·bym|[chcia]·ła·bym} się przed·[sta]·wić',
+      hebrew: 'הייתי רוצה להציג את עצמי',
+      phoneticHebrew: '{[חְצְ׳יָאוו]·בִּם|[חְצְ׳יָא]·ווָה·בִּם} שְׁיֶה פְּשֶׁט·[סְטָא]·בִיץ׳',
+      phoneticEnglish: '{[khchyahw]·bihm|[khchyah]·wah·bihm} shyeh pshet·[stah]·veech',
+      articulationTip:
+        'chc: ח ומיד צ׳ רכה – "חְצְ׳". ł כמו w. בצורת הנקבה chciałabym ההטעמה התקנית היא על ההברה השלישית מהסוף (chcia), כי -bym לא נספרת. przed לפני st מאבדת קוליות: "פְּשֶׁט".',
+      backchainingSteps: ['przedstawić', 'się przedstawić', 'Chciał{bym|abym} się przedstawić'],
+      formality: 'formal',
+      soundTags: ['soft-sibilant', 'l-vs-ł', 'devoicing', 'cluster'],
+      culturalNote: 'Chciał{bym|abym} ("הייתי רוצה") היא הדרך המנומסת לבקש כל דבר – הרבה יותר עדינה מ-chcę ("אני רוצה"). גבר אומר chciałbym, אישה – chciałabym.',
     },
   ],
 };

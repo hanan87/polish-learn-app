@@ -65,9 +65,14 @@ export const ITEM_EN: Record<string, EnglishEntry> = {
   'u2-08': { en: 'How are you? (to a man, formal)', tip: 'się = soft ś + e: a short, unstressed "shyeh". j sounds like English y.', note: 'Strangers are addressed in the third person: Pan (sir) for a man and Pani (madam) for a woman – with a third-person verb (ma, not masz). This is the right way to address any adult who is not a close friend.' },
   'u2-09': { en: 'How are you? (to a woman, formal)', tip: 'Pani – stress on pa. ni is a short, soft n.' },
   'u2-10': { en: "How are you? / How's it going? (to a friend)", tip: 'masz – hard sz at the end, round your lips. Here the address is second person (ty).', note: 'Second-person address – only for people you are "na ty" with: friends, family, children.' },
-  'u2-11': { en: 'My name is Dawid', tip: 'imię – soft m: "myeh", and final ę sounds like e. Also: a final d loses its voice – Dawid sounds like "DAH-veet".', note: 'Replace Dawid with your own name. A more formal way to give your surname: Nazywam się… ("My name is…").' },
+  'u2-11': { en: 'My name is {name}', tip: 'imię – soft m: "myeh", and final ę sounds like e. Also: a voiced consonant at the end of a word loses its voice – Dawid sounds like "DAH-veet".', note: 'The phrase uses the name you chose in Settings (in Latin letters). A more formal way to give your surname: Nazywam się… ("My name is…").' },
   'u2-12': { en: 'Nice to meet you', tip: 'ło – ł is English w: "woh", not l!' },
   'u2-13': { en: 'May I help you (sir)?', tip: 'czy opens a yes/no question – hard cz and dark y. ó = u. Final c = "ts".', note: 'Panu is the form "to the gentleman" (a case of Pan). For a woman: Czy mogę Pani pomóc?' },
+  'u2-15': {
+    en: "I'd like to introduce myself",
+    tip: 'chc: a throaty h straight into a soft ch – "khch". ł is w. In the feminine chciałabym the standard stress falls on the third syllable from the end (chcia), because -bym is not counted. przed before st loses its voice: "pshet".',
+    note: 'Chciał{bym|abym} ("I would like") is the polite way to ask for anything – much softer than chcę ("I want"). A man says chciałbym, a woman chciałabym.',
+  },
   'u2-14': { en: 'Shall we switch to "ty" (first names)?', tip: 'prz = "psh". dź is soft – a "j" with a smile. ty = t followed by a dark y.', note: 'Switching from Pan/Pani to ty is a small ritual: usually the older, more senior person or the woman offers it, sometimes with a toast. Never switch to ty on your own.' },
   // Unit 3
   'u3-01': { en: 'one (1)', tip: 'Polish j is always English y. The stress is on je – the second-to-last syllable.' },

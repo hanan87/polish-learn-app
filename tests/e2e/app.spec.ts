@@ -6,6 +6,9 @@ test.describe('first run, language and theme', () => {
   test('welcome screen → Hebrew RTL, switch to English LTR, choice persists', async ({ page }) => {
     const errors = await openApp(page);
     await page.getByRole('button', { name: /פולנית לדוברי עברית/ }).click();
+    // Step 2 of the welcome screen: speaker gender and name (optional).
+    await expect(page.getByText('נעים להכיר!')).toBeVisible();
+    await page.getByRole('button', { name: 'בואו נתחיל' }).click();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { name: 'מפת הקורס' })).toBeVisible();
     await page.getByRole('button', { name: 'EN', exact: true }).click();

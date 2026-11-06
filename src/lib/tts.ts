@@ -86,6 +86,47 @@ export function speak(text: string, rate: number = RATE_NORMAL): Promise<void> {
   });
 }
 
+/** Best installed voice for a language prefix ('he', 'en'), or null. */
+export function findVoiceFor(prefix: string): SpeechSynthesisVoice | null {
+  if (!ttsSupported) return null;
+  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang?.toLowerCase().replace('_', '-').startsWith(prefix));
+  if (!voices.length) return null;
+  return voices.find((v) => /google|natural|online|enhanced|premium/i.test(v.name)) ?? voices[0];
+}
+
+/**
+ * Speak a translation in the learner's language (Hebrew or English).
+ * Resolves false without speaking when the device has no voice for that language.
+ */
+export function speakNative(text: string, lang: 'he' | 'en', rate = 1): Promise<boolean> {
+  const voice = findVoiceFor(lang === 'he' ? 'he' : 'en');
+  // Older engines report Hebrew as "iw".
+  const fallback = lang === 'he' ? findVoiceFor('iw') : null;
+  const v = voice ?? fallback;
+  if (!v || !text.trim()) return Promise.resolve(false);
+  const synth = window.speechSynthesis;
+  synth.cancel();
+  synth.resume();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = v.lang;
+  utterance.voice = v;
+  utterance.rate = rate;
+  activeUtterance = utterance;
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (activeUtterance === utterance) activeUtterance = null;
+      resolve(true);
+    };
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    setTimeout(finish, (900 + text.length * 110) / rate + 2500);
+    synth.speak(utterance);
+  });
+}
+
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**

@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
-import { Download, FileJson, Mic, Moon, RotateCcw, Smartphone, Target, Upload } from 'lucide-react';
+import { Download, FileJson, Mic, Moon, RotateCcw, Smartphone, Target, Upload, UserRound, Vibrate } from 'lucide-react';
+import { ProfileFields } from '../components/ProfileFields';
+import { haptic, hapticsSupported, setHapticsEnabled } from '../lib/haptics';
 import { useLang } from '../i18n/LangContext';
 import { useTheme, type ThemeChoice } from '../i18n/ThemeContext';
 import { MicTest } from '../components/MicTest';
@@ -15,7 +17,7 @@ import { LangSwitch } from '../components/TopBar';
 export function Settings() {
   const { tr, lang } = useLang();
   const theme = useTheme();
-  const { state, setDailyGoal, exportJson, importJson, resetAll } = useProgress();
+  const { state, setDailyGoal, setProfile, setHaptics, exportJson, importJson, resetAll } = useProgress();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -65,6 +67,42 @@ export function Settings() {
           </div>
           <LangSwitch />
         </div>
+      </section>
+
+      <section className={card}>
+        <p className="flex items-center gap-1.5 font-bold">
+          <UserRound className="size-4 text-rose-600" /> {tr('הפרופיל שלי', 'My profile')}
+        </p>
+        <ProfileFields lang={lang} profile={state.profile} onChange={setProfile} />
+      </section>
+
+      <section className={card}>
+        <label className="flex items-center justify-between gap-3">
+          <span>
+            <span className="flex items-center gap-1.5 font-bold">
+              <Vibrate className="size-4 text-violet-600" /> {tr('רטט (Haptics)', 'Vibration (haptics)')}
+            </span>
+            <span className="block text-xs text-slate-500">
+              {hapticsSupported()
+                ? tr('רטט עדין בהקשה על המקלדת הפולנית, בתחילת הקלטה ובתשובה נכונה או שגויה.', 'A gentle buzz on Polish keyboard taps, when recording starts and on right or wrong answers.')
+                : tr('המכשיר או הדפדפן הזה לא תומכים ברטט (למשל iPhone).', 'This device or browser does not support vibration (e.g. iPhone).')}
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={state.prefs.haptics}
+            onChange={(e) => {
+              setHaptics(e.target.checked);
+              if (e.target.checked) {
+                setHapticsEnabled(true);
+                haptic('success');
+              }
+            }}
+            aria-label={tr('רטט', 'Vibration')}
+            className="size-6 shrink-0 accent-violet-600"
+          />
+        </label>
       </section>
 
       <section className={card}>

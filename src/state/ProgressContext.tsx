@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
-import { getItem, registerCustomItems } from '../data';
+import { applyProfile, getItem, registerCustomItems } from '../data';
 import { SOUND_INFO, WEAK_SOUND_ERROR_RATE, WEAK_SOUND_MIN_ATTEMPTS, WEAK_SOUND_MIN_AVG, type SoundKey } from '../data/sounds';
 import type { LearningItem } from '../data/types';
 import { addDays, daysBetween, todayKey } from '../lib/date';
+import { setHapticsEnabled } from '../lib/haptics';
+import { DEFAULT_PROFILE, type LearnerProfile } from '../lib/personalize';
 import { detectSounds, letterSound } from '../lib/polishPhonetics';
 
 /**
@@ -30,6 +32,8 @@ export const XP = {
   lessonComplete: 30,
   dialogueComplete: 25,
   customWord: 5,
+  storyQuestion: 10,
+  storyComplete: 15,
 } as const;
 
 export interface ItemProgress {
@@ -67,6 +71,12 @@ export interface ProgressState {
   lessons: Record<string, { completedAt: string; bestAccuracy: number }>;
   dialogues: Record<string, { completedAt: string; bestScore: number }>;
   customItems: LearningItem[];
+  /** Learner's grammatical gender and first name (personalizes gendered phrases). */
+  profile: LearnerProfile;
+  prefs: { haptics: boolean };
+  /** Speed Blitz personal record. */
+  blitz: { best: number; plays: number };
+  stories: Record<string, { completedAt: string; bestCorrect: number }>;
 }
 
 export const initialState = (): ProgressState => ({
@@ -80,6 +90,10 @@ export const initialState = (): ProgressState => ({
   lessons: {},
   dialogues: {},
   customItems: [],
+  profile: { ...DEFAULT_PROFILE },
+  prefs: { haptics: true },
+  blitz: { best: 0, plays: 0 },
+  stories: {},
 });
 
 const emptyItem = (): ItemProgress => ({
@@ -122,6 +136,10 @@ export function migrate(raw: unknown): ProgressState | null {
     items,
     sounds: data.sounds ?? {},
     customItems: Array.isArray(data.customItems) ? data.customItems : [],
+    profile: { ...base.profile, ...(data.profile ?? {}) },
+    prefs: { ...base.prefs, ...(data.prefs ?? {}) },
+    blitz: { ...base.blitz, ...(data.blitz ?? {}) },
+    stories: data.stories ?? {},
   } as ProgressState;
 }
 
@@ -146,6 +164,10 @@ export type Action =
   | { type: 'goal'; goal: number }
   | { type: 'addCustom'; item: LearningItem }
   | { type: 'removeCustom'; id: string }
+  | { type: 'profile'; profile: Partial<LearnerProfile> }
+  | { type: 'haptics'; on: boolean }
+  | { type: 'blitz'; score: number }
+  | { type: 'story'; id: string; correct: number; total: number }
   | { type: 'replace'; state: ProgressState }
   | { type: 'reset' };
 
@@ -300,6 +322,23 @@ export function reducer(state: ProgressState, action: Action): ProgressState {
       return { ...state, items, customItems: state.customItems.filter((i) => i.id !== action.id) };
     }
 
+    case 'profile':
+      return { ...state, profile: { ...state.profile, ...action.profile } };
+
+    case 'haptics':
+      return { ...state, prefs: { ...state.prefs, haptics: action.on } };
+
+    case 'blitz': {
+      const s = { ...state, blitz: { best: Math.max(state.blitz.best, action.score), plays: state.blitz.plays + 1 } };
+      return withXp(s, action.score);
+    }
+
+    case 'story': {
+      const prev = state.stories[action.id];
+      const entry = { completedAt: todayKey(), bestCorrect: Math.max(prev?.bestCorrect ?? 0, action.correct) };
+      return withXp({ ...state, stories: { ...state.stories, [action.id]: entry } }, XP.storyComplete + action.correct * XP.storyQuestion);
+    }
+
     case 'replace':
       return action.state;
 
@@ -374,6 +413,10 @@ interface ProgressApi {
   completeLesson: (id: string, accuracy: number) => void;
   completeDialogue: (id: string, score: number) => void;
   setDailyGoal: (goal: number) => void;
+  setProfile: (profile: Partial<LearnerProfile>) => void;
+  setHaptics: (on: boolean) => void;
+  recordBlitz: (score: number) => void;
+  completeStory: (id: string, correct: number, total: number) => void;
   addCustomItem: (item: LearningItem) => void;
   removeCustomItem: (id: string) => void;
   exportJson: () => string;
@@ -392,6 +435,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   // Register custom items synchronously so getItem() resolves them during this render.
   useMemo(() => registerCustomItems(state.customItems), [state.customItems]);
+  // Resolve gendered / named phrases for this learner before any child renders an item.
+  useMemo(() => applyProfile(state.profile), [state.profile]);
+  useMemo(() => setHapticsEnabled(state.prefs.haptics), [state.prefs.haptics]);
 
   useEffect(() => {
     try {
@@ -421,6 +467,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const completeLesson = useCallback((id: string, accuracy: number) => dispatch({ type: 'lesson', id, accuracy }), []);
   const completeDialogue = useCallback((id: string, score: number) => dispatch({ type: 'dialogue', id, score }), []);
   const setDailyGoal = useCallback((goal: number) => dispatch({ type: 'goal', goal }), []);
+  const setProfile = useCallback((profile: Partial<LearnerProfile>) => dispatch({ type: 'profile', profile }), []);
+  const setHaptics = useCallback((on: boolean) => dispatch({ type: 'haptics', on }), []);
+  const recordBlitz = useCallback((score: number) => dispatch({ type: 'blitz', score }), []);
+  const completeStory = useCallback((id: string, correct: number, total: number) => dispatch({ type: 'story', id, correct, total }), []);
   const addCustomItem = useCallback((item: LearningItem) => dispatch({ type: 'addCustom', item }), []);
   const removeCustomItem = useCallback((id: string) => dispatch({ type: 'removeCustom', id }), []);
   const resetAll = useCallback(() => dispatch({ type: 'reset' }), []);
@@ -456,6 +506,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       completeLesson,
       completeDialogue,
       setDailyGoal,
+      setProfile,
+      setHaptics,
+      recordBlitz,
+      completeStory,
       addCustomItem,
       removeCustomItem,
       exportJson: () => JSON.stringify({ app: 'polish-learn', exportedAt: new Date().toISOString(), progress: state }, null, 2),
@@ -479,6 +533,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     completeLesson,
     completeDialogue,
     setDailyGoal,
+    setProfile,
+    setHaptics,
+    recordBlitz,
+    completeStory,
     addCustomItem,
     removeCustomItem,
     importJson,

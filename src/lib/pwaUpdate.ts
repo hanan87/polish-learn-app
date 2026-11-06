@@ -3,6 +3,8 @@ import { isStandaloneBuild } from './env';
 
 /** Build identity injected by vite.config.ts (git commit + build time). */
 export const APP_VERSION: string = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
+/** Release number from package.json (bumped per stage: 1.6.0 = stage 6). */
+export const APP_SEMVER: string = typeof __APP_SEMVER__ !== 'undefined' ? __APP_SEMVER__ : '';
 export const BUILD_TIME: string = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : '';
 
 const CHECK_EVERY_MS = 15 * 60 * 1000;
@@ -36,7 +38,8 @@ export function initPwaUpdates(): void {
 
 /** Human-readable version string, e.g. "e3c972f · 06/11/2026 09:49". */
 export function versionLabel(locale: string): string {
-  if (!BUILD_TIME) return APP_VERSION;
+  const head = APP_SEMVER ? `v${APP_SEMVER} (${APP_VERSION})` : APP_VERSION;
+  if (!BUILD_TIME) return head;
   const d = new Date(BUILD_TIME);
-  return `${APP_VERSION} · ${d.toLocaleDateString(locale)} ${d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`;
+  return `${head} · ${d.toLocaleDateString(locale)} ${d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}`;
 }

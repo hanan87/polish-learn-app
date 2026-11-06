@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, BedDouble, Coffee, Handshake, Mic, RotateCcw, TrainFront, Trophy, User, Volume2, XCircle, type LucideIcon } from 'lucide-react';
 import { ROLEPLAYS, type Roleplay as RoleplayT, type RoleplayOption } from '../data/dialogues';
+import { STORIES } from '../data/stories';
 import { FormalityBadge } from '../components/FormalityBadge';
 import { Phonetic } from '../components/Phonetic';
 import { PolishSyllables } from '../components/PolishSyllables';
 import { PronunciationPractice } from '../components/PronunciationPractice';
 import { useLang } from '../i18n/LangContext';
+import { usePersonal } from '../hooks/usePersonal';
 import { toEnglishPhonetic, toHebrewPhonetic, toSyllableNotation } from '../lib/polishPhonetics';
 import { shuffle } from '../lib/random';
 import { speak } from '../lib/tts';
@@ -21,15 +23,51 @@ const ICONS: Record<string, LucideIcon> = {
   meeting: Handshake,
 };
 
-export function Roleplay() {
+export function Roleplay({ onOpenStory }: { onOpenStory: (id: string) => void }) {
   const { state } = useProgress();
   const { tr, lang } = useLang();
+  const { tx } = usePersonal();
   const [active, setActive] = useState<RoleplayT | null>(null);
 
   if (active) return <RoleplayRunner key={active.id} scenario={active} onExit={() => setActive(null)} />;
 
   return (
     <div className="space-y-4">
+      <section className="space-y-3" data-testid="stories">
+        <h2 className="text-lg font-black">{tr('סיפורים קצרים', 'Mini stories')}</h2>
+        <p className="text-sm text-slate-600">
+          {tr('דיאלוגים קצרים ומצחיקים. הקישו על כל מילה לתרגום ולפענוח הסיומת, וענו על 2 שאלות הבנה.', 'Short, funny dialogues. Tap any word for its meaning and ending decoder, then answer 2 questions.')}
+        </p>
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {STORIES.map((s) => {
+            const done = state.stories[s.id];
+            return (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenStory(s.id)}
+                  className="flex h-full w-full flex-col items-start gap-1 rounded-2xl bg-white p-3 text-start shadow-sm ring-1 ring-slate-200 transition hover:ring-amber-300 active:scale-[0.98]"
+                >
+                  <span className="text-2xl" aria-hidden>
+                    {s.emoji}
+                  </span>
+                  <span className="text-sm leading-tight font-bold text-slate-900">{s.title[lang]}</span>
+                  <span className="polish text-xs text-slate-500" dir="ltr">
+                    {s.titlePl}
+                  </span>
+                  {done && (
+                    <span className="mt-auto flex items-center gap-1 text-[11px] font-bold text-amber-600">
+                      <Trophy className="size-3.5" /> {done.bestCorrect}/{s.questions.length}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      <h2 className="text-lg font-black">{tr('סימולציות שיחה', 'Conversations')}</h2>
       <p className="text-sm leading-relaxed text-slate-600">
         {tr(
           'סימולציית שיחה קולית: הדובר הפולני מדבר, אתם בוחרים תגובה – ואז אומרים אותה בקול. השיחה מתקדמת רק כשההגייה תקינה.',
@@ -58,7 +96,7 @@ export function Roleplay() {
                     </span>
                   )}
                 </span>
-                <span className="text-sm text-slate-600">{r.setting[lang]}</span>
+                <span className="text-sm text-slate-600">{tx(r.setting)}</span>
                 <span className="mt-auto flex items-center gap-2 text-xs text-slate-500">
                   <FormalityBadge formality={r.register} />
                   {tr(`${r.turns.length} תורות`, `${r.turns.length} turns`)}
@@ -80,9 +118,30 @@ interface Turn {
   score?: number;
 }
 
+/** "A woman says: …" / "To a woman: …" – how the phrase changes for the other gender. */
+function AltNote({ template, me }: { template: string; me: boolean }) {
+  const { tr } = useLang();
+  const { alt } = usePersonal();
+  const a = alt(template);
+  if (!a) return null;
+  const label = me
+    ? a.gender === 'f' ? tr('אישה אומרת:', 'A woman says:') : tr('גבר אומר:', 'A man says:')
+    : a.gender === 'f' ? tr('לאישה:', 'To a woman:') : tr('לגבר:', 'To a man:');
+  return (
+    <p className="text-[11px] text-violet-700" data-testid="gender-alt">
+      {label}{' '}
+      <button type="button" onClick={() => speak(a.polish)} className="polish font-bold underline decoration-violet-300" dir="ltr">
+        {a.polish}
+      </button>
+    </p>
+  );
+}
+
 function Bubble({ entry, partnerName }: { entry: Turn; partnerName: string }) {
-  const { tr, lang } = useLang();
+  const { tr } = useLang();
+  const { pl, tx } = usePersonal();
   const me = entry.speaker === 'me';
+  const polish = pl(entry.polish);
   return (
     <div className={`animate-pop-in flex gap-2 ${me ? 'flex-row-reverse' : ''}`}>
       <span className={`grid size-9 shrink-0 place-items-center rounded-full ${me ? 'bg-rose-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
@@ -93,12 +152,13 @@ function Bubble({ entry, partnerName }: { entry: Turn; partnerName: string }) {
           {me ? tr('אתם', 'You') : partnerName}
           {entry.score !== undefined && <span className="rounded-full bg-emerald-100 px-1.5 font-bold text-emerald-700">{entry.score}%</span>}
         </p>
-        <button type="button" onClick={() => speak(entry.polish)} className="flex items-start gap-1.5 text-start">
-          <PolishSyllables notation={toSyllableNotation(entry.polish)} size="sm" showDots={false} />
+        <button type="button" onClick={() => speak(polish)} className="flex items-start gap-1.5 text-start">
+          <PolishSyllables notation={toSyllableNotation(polish)} size="sm" showDots={false} />
           <Volume2 className="mt-1 size-4 shrink-0 text-slate-400" />
         </button>
-        <Phonetic he={toHebrewPhonetic(entry.polish)} en={toEnglishPhonetic(entry.polish)} size="sm" />
-        <p className="text-sm text-slate-500">{lang === 'he' ? entry.he : entry.en}</p>
+        <Phonetic he={toHebrewPhonetic(polish)} en={toEnglishPhonetic(polish)} size="sm" />
+        <p className="text-sm text-slate-500">{tx({ he: entry.he, en: entry.en })}</p>
+        <AltNote template={entry.polish} me={me} />
       </div>
     </div>
   );
@@ -107,6 +167,7 @@ function Bubble({ entry, partnerName }: { entry: Turn; partnerName: string }) {
 function RoleplayRunner({ scenario, onExit }: { scenario: RoleplayT; onExit: () => void }) {
   const { completeDialogue } = useProgress();
   const { tr, lang, dir } = useLang();
+  const { pl, tx } = usePersonal();
   const [turn, setTurn] = useState(0);
   const [answers, setAnswers] = useState<Turn[]>([]);
   const [picked, setPicked] = useState<RoleplayOption | null>(null);
@@ -132,7 +193,8 @@ function RoleplayRunner({ scenario, onExit }: { scenario: RoleplayT; onExit: () 
   }, [scenario, turn, answers]);
 
   useEffect(() => {
-    if (current && !finished) speak(current.line.polish);
+    if (current && !finished) speak(pl(current.line.polish));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, finished]);
 
   useEffect(() => {
@@ -148,7 +210,7 @@ function RoleplayRunner({ scenario, onExit }: { scenario: RoleplayT; onExit: () 
     if (opt.correct) {
       setWrongPick(null);
       setPicked(opt);
-      speak(opt.polish, 0.9);
+      speak(pl(opt.polish), 0.9);
     } else {
       setWrongPick(opt);
     }
@@ -199,7 +261,7 @@ function RoleplayRunner({ scenario, onExit }: { scenario: RoleplayT; onExit: () 
           {Math.min(turn + 1, scenario.turns.length)}/{scenario.turns.length}
         </span>
       </div>
-      <p className="rounded-2xl bg-slate-100 p-3 text-sm text-slate-600">{scenario.setting[lang]}</p>
+      <p className="rounded-2xl bg-slate-100 p-3 text-sm text-slate-600">{tx(scenario.setting)}</p>
 
       <div className="space-y-3">
         {log.map((entry, i) => (
@@ -219,16 +281,16 @@ function RoleplayRunner({ scenario, onExit }: { scenario: RoleplayT; onExit: () 
                 wrongPick === opt ? 'animate-shake bg-rose-50 ring-rose-400' : 'bg-white ring-slate-200 hover:ring-slate-300'
               }`}
             >
-              <PolishSyllables notation={toSyllableNotation(opt.polish)} size="md" />
-              <Phonetic he={toHebrewPhonetic(opt.polish)} en={toEnglishPhonetic(opt.polish)} size="sm" />
-              <span className="block text-sm text-slate-500">{opt.t[lang]}</span>
+              <PolishSyllables notation={toSyllableNotation(pl(opt.polish))} size="md" />
+              <Phonetic he={toHebrewPhonetic(pl(opt.polish))} en={toEnglishPhonetic(pl(opt.polish))} size="sm" />
+              <span className="block text-sm text-slate-500">{tx(opt.t)}</span>
             </button>
           ))}
           {wrongPick && (
             <p className="animate-pop-in flex items-start gap-2 rounded-2xl bg-rose-50 p-3 text-sm text-rose-900">
               <XCircle className="mt-0.5 size-4 shrink-0" />
               <span>
-                {wrongPick.feedback[lang]} {tr('נסו תגובה אחרת.', 'Try another reply.')}
+                {tx(wrongPick.feedback)} {tr('נסו תגובה אחרת.', 'Try another reply.')}
               </span>
             </p>
           )}
@@ -237,15 +299,16 @@ function RoleplayRunner({ scenario, onExit }: { scenario: RoleplayT; onExit: () 
 
       {!finished && picked && (
         <div className="animate-pop-in space-y-3 rounded-3xl bg-white p-4 shadow-sm ring-2 ring-emerald-300">
-          <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">{picked.feedback[lang]}</p>
+          <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">{tx(picked.feedback)}</p>
           <p className="flex items-center gap-1.5 font-bold text-slate-800">
             <Mic className="size-4 text-rose-600" /> {tr('עכשיו אמרו את זה בקול:', 'Now say it aloud:')}
           </p>
           <div className="text-center">
-            <PolishSyllables notation={toSyllableNotation(picked.polish)} size="lg" />
-            <Phonetic he={toHebrewPhonetic(picked.polish)} en={toEnglishPhonetic(picked.polish)} />
+            <PolishSyllables notation={toSyllableNotation(pl(picked.polish))} size="lg" />
+            <Phonetic he={toHebrewPhonetic(pl(picked.polish))} en={toEnglishPhonetic(pl(picked.polish))} />
+            <AltNote template={picked.polish} me />
           </div>
-          <PronunciationPractice target={picked.polish} onResult={(s) => setBestScore((b) => Math.max(b ?? 0, s))} />
+          <PronunciationPractice target={pl(picked.polish)} onResult={(s) => setBestScore((b) => Math.max(b ?? 0, s))} />
           {passed ? (
             <button type="button" onClick={() => advance(bestScore ?? undefined)} className="w-full rounded-2xl bg-emerald-600 py-4 text-base font-bold text-white shadow-md active:scale-[0.98]">
               {tr(`ההגייה תקינה (${bestScore}%) – המשך בשיחה`, `Pronunciation passed (${bestScore}%) – continue`)}

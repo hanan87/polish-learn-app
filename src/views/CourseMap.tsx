@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { CheckCircle2, ChevronDown, Flame, Lock, Play, RotateCcw, Star, Target, Trophy } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Flame, Headphones, Lock, Play, RotateCcw, Star, Target, Trophy, UserRound, X } from 'lucide-react';
+import { ProfileFields } from '../components/ProfileFields';
 import { UNITS } from '../data';
 import { lessonsOfUnit } from '../data/lessons';
 import { itemText, unitText, type UnitColor } from '../data/types';
@@ -21,11 +22,35 @@ const COLOR: Record<UnitColor, { bg: string; ring: string; text: string; bar: st
 interface Props {
   onOpenLesson: (lessonId: string) => void;
   onOpenItem: (itemId: string) => void;
+  onOpenHandsFree: () => void;
 }
 
-export function CourseMap({ onOpenLesson, onOpenItem }: Props) {
-  const { state, isLearned, todayXp, activeStreak, level } = useProgress();
+/** Big entry button for the audio-only (driving / walking) trainer – shared by the map and the review tab. */
+export function HandsFreeButton({ onClick, subtitle }: { onClick: () => void; subtitle: string }) {
+  const { tr } = useLang();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-3xl bg-gradient-to-l from-indigo-600 to-sky-500 p-4 text-start text-white shadow-md transition active:scale-[0.98]"
+    >
+      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/20">
+        <Headphones className="size-6" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-base font-black">{tr('מצב נהיגה והליכה (שמע בלבד)', 'Driving & walking mode (audio only)')}</span>
+        <span className="block text-xs text-white/85">{subtitle}</span>
+      </span>
+      <Play className="size-6 shrink-0 fill-white" />
+    </button>
+  );
+}
+
+export function CourseMap({ onOpenLesson, onOpenItem, onOpenHandsFree }: Props) {
+  const { state, isLearned, todayXp, activeStreak, level, setProfile } = useProgress();
   const { tr, lang } = useLang();
+  // Shown once to learners who have not picked a gender yet; stays open while they type their name.
+  const [profileOpen, setProfileOpen] = useState(() => state.profile.gender === null);
   const [openUnit, setOpenUnit] = useState<string | null>(() => {
     const firstUnfinished = UNITS.find((u) => lessonsOfUnit(u.id).some((l) => !state.lessons[l.id]));
     return firstUnfinished?.id ?? UNITS[0].id;
@@ -49,6 +74,33 @@ export function CourseMap({ onOpenLesson, onOpenItem }: Props) {
           </div>
         </Stat>
       </section>
+
+      {profileOpen && (
+        <section className="relative space-y-3 rounded-3xl bg-rose-50 p-4 ring-1 ring-rose-200" data-testid="profile-prompt">
+          <button
+            type="button"
+            onClick={() => setProfileOpen(false)}
+            className="absolute end-2 top-2 grid size-8 place-items-center rounded-full text-slate-400 hover:bg-rose-100"
+            aria-label={tr('סגור', 'Close')}
+          >
+            <X className="size-4" />
+          </button>
+          <p className="flex items-center gap-1.5 font-bold text-rose-800">
+            <UserRound className="size-4" /> {tr('חדש: משפטים מותאמים אישית', 'New: personalized phrases')}
+          </p>
+          <ProfileFields lang={lang} profile={state.profile} onChange={setProfile} />
+          {state.profile.gender && (
+            <button type="button" onClick={() => setProfileOpen(false)} className="w-full rounded-2xl bg-rose-600 py-3 font-bold text-white active:scale-[0.98]">
+              {tr('שמור', 'Save')}
+            </button>
+          )}
+        </section>
+      )}
+
+      <HandsFreeButton
+        onClick={onOpenHandsFree}
+        subtitle={tr('המשמעות, הפולנית לאט ומהר, ואז אתם חוזרים – בלי לגעת במסך.', 'Meaning, slow and normal Polish, then you repeat – no screen taps needed.')}
+      />
 
       <ol className="relative space-y-4">
         {UNITS.map((unit) => {

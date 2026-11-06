@@ -13,9 +13,12 @@ import {
   Plus,
   Search,
   Trash2,
+  Trophy,
   Volume2,
   X,
+  Zap,
 } from 'lucide-react';
+import { HandsFreeButton } from './CourseMap';
 import { ALL_ITEMS, getCustomItems, getItem, getUnitOfItem, UNITS } from '../data';
 import { SOUND_INFO } from '../data/sounds';
 import { itemText, type LearningItem } from '../data/types';
@@ -39,9 +42,11 @@ interface Props {
   onOpenItem: (id: string) => void;
   onStartPractice: () => void;
   onOpenSoundGroup: (groupId: string) => void;
+  onOpenHandsFree: () => void;
+  onOpenBlitz: () => void;
 }
 
-export function VocabReview({ onOpenItem, onStartPractice, onOpenSoundGroup }: Props) {
+export function VocabReview({ onOpenItem, onStartPractice, onOpenSoundGroup, onOpenHandsFree, onOpenBlitz }: Props) {
   const { dueItemIds, state } = useProgress();
   const { tr } = useLang();
   const [session, setSession] = useState<string[] | null>(null);
@@ -87,6 +92,25 @@ export function VocabReview({ onOpenItem, onStartPractice, onOpenSoundGroup }: P
           </button>
         </div>
       </section>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={onOpenBlitz}
+          className="flex items-center gap-3 rounded-3xl bg-gradient-to-l from-amber-500 to-yellow-400 p-4 text-start text-white shadow-md transition active:scale-[0.98]"
+        >
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/25">
+            <Zap className="size-6 fill-white" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base font-black">{tr('אתגר מהירות 60 שניות', '60-second Speed Blitz')}</span>
+            <span className="flex items-center gap-1 text-xs text-white/90">
+              <Trophy className="size-3.5" /> {tr('השיא שלכם', 'Your record')}: {state.blitz.best}
+            </span>
+          </span>
+        </button>
+        <HandsFreeButton onClick={onOpenHandsFree} subtitle={tr('חזרה קולית על המילים שלמדתם – החלשות קודם.', 'Audio review of your learned words – weakest first.')} />
+      </div>
 
       <section className="space-y-3 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
         <div className="flex items-start gap-3">

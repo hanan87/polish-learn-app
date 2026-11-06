@@ -39,6 +39,7 @@ function buildVersion(): string {
 
 const define = {
   __APP_VERSION__: JSON.stringify(buildVersion()),
+  __APP_SEMVER__: JSON.stringify(JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version),
   __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
 };
 

@@ -3,6 +3,7 @@ import { useLang } from '../i18n/LangContext';
 import { useTheme } from '../i18n/ThemeContext';
 import { useProgress } from '../state/ProgressContext';
 import { StandaloneDownload } from './StandaloneDownload';
+import { KasiaButton } from './KasiaAngel';
 
 /** HE | EN segmented switch for the interface + learning language. */
 export function LangSwitch() {
@@ -25,7 +26,7 @@ export function LangSwitch() {
 }
 
 /** Sticky header with title, language switch, download/settings, streak, daily goal and XP. */
-export function TopBar({ title, onOpenSettings }: { title: string; onOpenSettings: () => void }) {
+export function TopBar({ title, onOpenSettings, onOpenKasia }: { title: string; onOpenSettings: () => void; onOpenKasia: () => void }) {
   const { activeStreak, todayXp, state, level, levelProgress } = useProgress();
   const { tr } = useLang();
   const theme = useTheme();
@@ -34,7 +35,10 @@ export function TopBar({ title, onOpenSettings }: { title: string; onOpenSetting
   return (
     <header className="pt-safe sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
       <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
-        <h1 className="min-w-0 flex-1 truncate text-base font-bold text-slate-900 sm:text-lg">{title}</h1>
+        {/* Phones: the bottom nav already names the tab, so the title is for screen readers only and the row keeps room for its buttons. */}
+        <h1 className="sr-only min-w-0 flex-1 truncate text-base font-bold text-slate-900 sm:not-sr-only sm:text-lg">{title}</h1>
+        <span className="flex-1 sm:hidden" aria-hidden />
+        <KasiaButton onClick={onOpenKasia} />
         <LangSwitch />
         <button
           type="button"
@@ -44,7 +48,10 @@ export function TopBar({ title, onOpenSettings }: { title: string; onOpenSetting
         >
           {theme.resolved === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
         </button>
-        <StandaloneDownload variant="icon" />
+        {/* On narrow phones the download shortcut lives in Settings only. */}
+        <span className="hidden sm:contents">
+          <StandaloneDownload variant="icon" />
+        </span>
         <button type="button" onClick={onOpenSettings} className="grid size-9 shrink-0 place-items-center rounded-full text-slate-600 hover:bg-slate-100" aria-label={tr('הגדרות', 'Settings')}>
           <Settings className="size-5" />
         </button>

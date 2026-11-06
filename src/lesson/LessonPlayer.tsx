@@ -14,6 +14,7 @@ import { AssembleStep, ChooseSpellingStep, FillBlankStep } from './steps/Reading
 import { RecallStep } from './steps/RecallStep';
 import { WritingStep } from './steps/WritingStep';
 import type { StepResult } from './types';
+import { haptic } from '../lib/haptics';
 
 export const PRACTICE_LESSON_ID = 'practice';
 
@@ -89,6 +90,7 @@ export function LessonPlayer({ lessonId, onClose }: Props) {
         return;
       }
       setResult(r);
+      if (r.correct !== null) haptic(r.correct ? 'success' : 'error');
       const isRetry = step.key.endsWith('-retry');
       // Accuracy counts first attempts only.
       if (r.correct !== null && !isRetry && !(step.key in graded)) {

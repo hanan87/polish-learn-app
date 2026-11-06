@@ -15,6 +15,7 @@ import { getRecognizerCtor, isAndroid, ttsSupported, type Recognizer } from '../
 import { micLog, sttSession } from '../lib/micLog';
 import { normalize, similarity } from '../lib/text';
 import { stopSpeaking } from '../lib/tts';
+import { haptic } from '../lib/haptics';
 import { useMic } from '../state/MicContext';
 
 /**
@@ -430,6 +431,7 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
     setHeardVoice(false);
     setAnalyserDead(false);
     updateStatus('starting');
+    haptic('start');
     micLog('start', `#${session} mode=${captureMode} target="${targetRef.current}"`);
 
     // Unlock the shared AudioContext inside the user's tap (iOS).

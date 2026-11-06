@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
 import { ArrowBigUp, Delete, Space } from 'lucide-react';
 import { useLang } from '../i18n/LangContext';
+import { haptic } from '../lib/haptics';
 
 const LETTERS = ['ą', 'ć', 'ę', 'ł', 'ń', 'ó', 'ś', 'ź', 'ż'];
 const DIGRAPHS = ['sz', 'cz', 'rz', 'dz', 'dź', 'dż', 'ch'];
@@ -70,6 +71,7 @@ export function PolishKeyboard({ inputRef, value, onChange }: Props) {
   const press = (fn: () => void) => ({
     onPointerDown: (e: PointerEvent) => {
       e.preventDefault();
+      haptic('tap');
       fn();
     },
     onKeyDown: (e: KeyboardEvent) => {

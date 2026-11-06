@@ -4,6 +4,9 @@ import type { Formality } from './types';
  * Interactive voice roleplay scenarios. Each turn: the Polish partner says a line (auto-played),
  * the learner picks one of 2–3 replies and must then SAY it; the conversation advances once the
  * pronunciation passes. Syllables and transcriptions are generated from the Polish text.
+ *
+ * Text may contain learner templates (lib/personalize): {masculine|feminine} and {name}. Partner
+ * lines use them to address the learner (Pan/Pani), replies use them for the learner's own gender.
  */
 
 export interface Bilingual {
@@ -156,7 +159,7 @@ export const ROLEPLAYS: Roleplay[] = [
         line: line('Dzień dobry, dokąd jedziemy?', 'יום טוב, לאן נוסעים?', 'Good afternoon, where are we going?'),
         options: [
           ok('Do hotelu Polonia, proszę.', 'למלון פולוניה, בבקשה.', 'To the Polonia hotel, please.', 'מצוין – do + יעד + proszę.', 'Great – do + destination + proszę.'),
-          no('Jestem uczulony na orzechy.', 'יש לי אלרגיה לאגוזים.', "I'm allergic to nuts.", 'מידע חשוב – אבל לא לנהג מונית.', 'Important information – but not for a taxi driver.'),
+          no('Jestem uczulon{y|a} na orzechy.', 'יש לי אלרגיה לאגוזים.', "I'm allergic to nuts.", 'מידע חשוב – אבל לא לנהג מונית.', 'Important information – but not for a taxi driver.'),
         ],
       },
       {
@@ -176,7 +179,7 @@ export const ROLEPLAYS: Roleplay[] = [
       {
         line: line('Dobry wieczór! W czym mogę pomóc?', 'ערב טוב! במה אוכל לעזור?', 'Good evening! How can I help?'),
         options: [
-          ok('Dobry wieczór, mam rezerwację na nazwisko Cohen.', 'ערב טוב, יש לי הזמנה על שם כהן.', 'Good evening, I have a reservation under the name Cohen.', 'מושלם לדלפק קבלה.', 'Perfect for a reception desk.'),
+          ok('Dobry wieczór, mam rezerwację na nazwisko Kohen.', 'ערב טוב, יש לי הזמנה על שם כהן.', 'Good evening, I have a reservation under the name Kohen.', 'מושלם לדלפק קבלה.', 'Perfect for a reception desk.'),
           no('Cześć! Co tam?', 'היי! מה קורה?', "Hi! What's up?", 'חברי מדי לפקידת קבלה.', 'Far too casual for a receptionist.'),
         ],
       },
@@ -193,8 +196,8 @@ export const ROLEPLAYS: Roleplay[] = [
     id: 'meeting',
     title: { he: 'שיחת היכרות', en: 'Getting acquainted' },
     setting: {
-      he: 'במסיבת עבודה אתם (דוד מישראל) פוגשים את מרתה. מתחילים ברשמיות – ומחכים שהיא תציע לעבור ל-ty.',
-      en: 'At a work party you (Dawid from Israel) meet Marta. Start formally – and wait for her to offer switching to ty.',
+      he: 'במסיבת עבודה אתם ({name} מישראל) פוגשים את מרתה. מתחילים ברשמיות – ומחכים שהיא תציע לעבור ל-ty.',
+      en: 'At a work party you ({name} from Israel) meet Marta. Start formally – and wait for her to offer switching to ty.',
     },
     partner: { he: 'מרתה', en: 'Marta' },
     register: 'formal',
@@ -202,28 +205,28 @@ export const ROLEPLAYS: Roleplay[] = [
       {
         line: line('Dzień dobry! Jestem Marta Kowalska.', 'יום טוב! אני מרתה קובלסקה.', "Hello! I'm Marta Kowalska."),
         options: [
-          ok('Dzień dobry, miło mi. Mam na imię Dawid.', 'יום טוב, נעים מאוד. קוראים לי דוד.', 'Hello, nice to meet you. My name is Dawid.', 'הצגה עצמית מנומסת ומושלמת.', 'A perfect polite introduction.'),
+          ok('Dzień dobry, miło mi. Mam na imię {name}.', 'יום טוב, נעים מאוד. קוראים לי {name}.', 'Hello, nice to meet you. My name is {name}.', 'הצגה עצמית מנומסת ומושלמת.', 'A perfect polite introduction.'),
           no('Cześć, Marta!', 'היי מרתה!', 'Hi Marta!', 'שם פרטי + Cześć למישהי שרק פגשתם – פמיליארי מדי.', 'First name + Cześć to someone you just met is too familiar.'),
         ],
       },
       {
-        line: line('Miło mi. Skąd Pan jest?', 'נעים מאוד. מאיפה אתה (אדוני)?', 'Nice to meet you. Where are you from?'),
+        line: line('Miło mi. Skąd {Pan|Pani} jest?', 'נעים מאוד. מאיפה {אתה (אדוני)|את (גברתי)}?', 'Nice to meet you. Where are you from?'),
         options: [
           ok('Jestem z Izraela.', 'אני מישראל.', "I'm from Israel.", 'נכון: z + שם המדינה בנטייה.', 'Right: z + the country in the genitive.'),
-          no('Jestem uczulony na orzechy.', 'יש לי אלרגיה לאגוזים.', "I'm allergic to nuts.", 'לא בדיוק מה שנשאלתם.', 'Not quite what you were asked.'),
+          no('Jestem uczulon{y|a} na orzechy.', 'יש לי אלרגיה לאגוזים.', "I'm allergic to nuts.", 'לא בדיוק מה שנשאלתם.', 'Not quite what you were asked.'),
         ],
       },
       {
-        line: line('Bardzo ciekawie! Czym się Pan zajmuje?', 'מעניין מאוד! במה אתה עוסק?', 'Very interesting! What do you do?'),
+        line: line('Bardzo ciekawie! Czym się {Pan|Pani} zajmuje?', 'מעניין מאוד! במה {אתה עוסק|את עוסקת}?', 'Very interesting! What do you do?'),
         options: [
-          ok('Jestem programistą.', 'אני מתכנת.', "I'm a programmer.", 'מצוין. אחרי jestem המקצוע בא בנטיית כלי: programistą.', 'Great. After jestem the job takes the instrumental: programistą.'),
+          ok('Jestem {programistą|programistką}.', 'אני {מתכנת|מתכנתת}.', "I'm a programmer.", 'מצוין. אחרי jestem המקצוע בא בנטיית כלי: {programistą|programistką}.', 'Great. After jestem the job takes the instrumental: {programistą|programistką}.'),
           no('Nie, dziękuję.', 'לא, תודה.', 'No, thank you.', 'זו לא תשובה לשאלה על העבודה שלכם.', 'That does not answer a question about your job.'),
         ],
       },
       {
         line: line('Może przejdźmy na ty? Jestem Marta.', 'אולי נעבור ל-ty? אני מרתה.', 'Shall we switch to ty? I am Marta.'),
         options: [
-          ok('Bardzo chętnie! Dawid.', 'בשמחה רבה! דוד.', 'Gladly! Dawid.', 'כשמציעים לעבור ל-ty מקבלים בשמחה.', 'When someone offers ty, you accept gladly.'),
+          ok('Bardzo chętnie! {name}.', 'בשמחה רבה! {name}.', 'Gladly! {name}.', 'כשמציעים לעבור ל-ty מקבלים בשמחה.', 'When someone offers ty, you accept gladly.'),
           no('Nie, dziękuję.', 'לא, תודה.', 'No, thank you.', 'סירוב להצעה לעבור ל-ty נחשב פוגע מאוד בתרבות הפולנית.', 'Refusing an offer to switch to ty is quite hurtful in Polish culture.'),
         ],
       },
