@@ -128,7 +128,7 @@ test.describe('Speed Blitz', () => {
 });
 
 test.describe('hands-free audio mode', () => {
-  test('runs the meaning → slow → normal → your turn loop by itself, pauses and resumes', async ({ page }) => {
+  test('runs the meaning → slow → normal → your turn loop by itself, judges honestly, pauses and resumes', async ({ page }) => {
     test.skip(test.info().project.name === 'mobile-speech', 'One run is enough – the mic pipeline is covered on desktop.');
     const errors = await openApp(page, { lang: 'en' });
     await page.getByRole('button', { name: /Driving & walking mode/ }).click();
@@ -136,17 +136,21 @@ test.describe('hands-free audio mode', () => {
     await expect(page.getByTestId('hf-counter')).toContainText('Word 1/16');
     await expect(phase).toContainText(/Polish – slowly/, { timeout: 20_000 });
     await expect(phase).toContainText(/Your turn – say it aloud!/, { timeout: 30_000 });
-    // No taps: the loop records, gives feedback and moves on to the next word by itself.
-    await expect(page.getByTestId('hf-counter')).toContainText('Word 2/16', { timeout: 60_000 });
+    // No taps: the loop records and judges by itself. Chrome under automation recognizes nothing,
+    // and an unverified attempt is never praised – it is a miss and the word stays.
+    await expect(phase).not.toContainText(/Excellent|Very good/, { timeout: 1000 });
+    await expect(page.getByTestId('hf-attempt')).toContainText('Attempt 2', { timeout: 60_000 });
+    await expect(page.getByTestId('hf-counter')).toContainText('Word 1/16');
 
     await page.getByTestId('hf-toggle').click();
     await expect(phase).toContainText('Paused');
     await page.waitForTimeout(1500);
-    await expect(page.getByTestId('hf-counter')).toContainText('Word 2/16');
+    await expect(page.getByTestId('hf-counter')).toContainText('Word 1/16');
     await page.getByTestId('hf-toggle').click();
     await expect(phase).not.toContainText('Paused');
+    // Skipping is the learner's explicit choice.
     await page.getByRole('button', { name: 'Skip' }).click();
-    await expect(page.getByTestId('hf-counter')).toContainText('Word 3/16');
+    await expect(page.getByTestId('hf-counter')).toContainText('Word 2/16');
     await page.getByRole('button', { name: 'Exit' }).click();
     await expect(page.getByRole('heading', { name: 'Course map' })).toBeAttached();
     expectNoErrors(errors);

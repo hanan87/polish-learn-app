@@ -5,6 +5,7 @@ import type { CaptureMode } from '../lib/captureMode';
 import { useLang } from '../i18n/LangContext';
 import { isIOS, speechRecognitionSupported } from '../lib/env';
 import { normalize, scorePronunciation, similarity, type PronunciationResult } from '../lib/text';
+import { judgeAttempt } from '../lib/handsFreeJudge';
 import { speak, stopSpeaking } from '../lib/tts';
 import { MIC_STATUS_MESSAGES, RETRYABLE, useMic } from '../state/MicContext';
 import { useProgress } from '../state/ProgressContext';
@@ -28,6 +29,8 @@ interface Attempt {
   audioSilent: boolean;
   sttError: string | null;
   mode: CaptureMode;
+  /** A voice was recorded but recognition found no Polish word – scored 0, never self-rated as good. */
+  unrecognized?: boolean;
 }
 
 /** Human explanation of why automatic scoring was not available. */
@@ -116,7 +119,15 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
     const r = recorder.result;
     if (!r) return;
     const noAudio = !r.recognized && !r.heardVoice && r.peakLevel < 0.01;
-    const scoring = r.recognized ? scorePronunciation(target, r.transcript) : null;
+    // Recognition ran and heard a voice but found no Polish word: that is a miss (usually a different
+    // word or unclear speech), not something to rate yourself on. Self-rating is only offered when
+    // this device cannot recognize speech at all.
+    const unrecognized = !noAudio && judgeAttempt(target, r).outcome === 'unclear';
+    const scoring = r.recognized
+      ? scorePronunciation(target, r.transcript)
+      : unrecognized
+        ? { score: 0, transcript: '', words: target.split(/\s+/).filter(Boolean).map((word) => ({ word, matched: false, similarity: 0 })) }
+        : null;
     finishAttempt({
       audioUrl: r.audioUrl,
       simulatedVoice: null,
@@ -127,6 +138,7 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
       audioSilent: !r.audioUrl || r.audioLost || r.peakLevel < 0.004,
       sttError: r.sttError,
       mode: r.mode,
+      unrecognized,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recorder.result]);
@@ -323,6 +335,17 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
 
       {attempt && !attempt.noAudio && (
         <div className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+          {attempt.unrecognized && (
+            <p className="flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-900 ring-1 ring-rose-200" role="alert" data-testid="unrecognized">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                {tr(
+                  'לא זיהיתי את המילה שאמרתם – זה קורה כשאומרים מילה אחרת או כשההגייה לא ברורה. הקשיבו לדובר לאט ונסו שוב.',
+                  "I didn't recognize the word you said – that happens with a different word or unclear pronunciation. Listen to the speaker slowly and try again.",
+                )}
+              </span>
+            </p>
+          )}
           {attempt.scoring ? (
             <ScoreView scoring={attempt.scoring} selfRated={attempt.selfRated} />
           ) : (

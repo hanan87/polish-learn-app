@@ -1,4 +1,5 @@
 import { ALL_ITEMS, applyProfile, getProfile } from '../data';
+import { COACH } from '../data/coach';
 import { ROLEPLAYS } from '../data/dialogues';
 import { KASIA_COMPLIMENTS, KASIA_DEDICATION, KASIA_TITLE } from '../data/kasia';
 import { CONTRAST_GROUPS } from '../data/minimalPairs';
@@ -58,6 +59,9 @@ export function buildClipCatalog(): ClipRequest[] {
         // Hands-free mode reads the meaning in the learner's language.
         add('he', 'n', item.hebrew);
         add('en', 'n', item.english);
+        // The articulation tip, read by the hands-free coach after repeated misses.
+        add('he', 'n', `${COACH.tip.he} ${item.articulationTip}`);
+        add('en', 'n', `${COACH.tip.en} ${item.articulationTipEn}`);
         if (item.genderAlt) addPolish(item.genderAlt.polish, item.genderAlt.gender === 'm' ? 'pl-m' : 'pl-f');
       }
       for (const r of ROLEPLAYS) {
@@ -87,6 +91,11 @@ export function buildClipCatalog(): ClipRequest[] {
       addPolish(q.q);
       q.options.forEach((o) => addPolish(o.polish));
     }
+  }
+
+  for (const line of Object.values(COACH)) {
+    add('he', 'n', line.he);
+    add('en', 'n', line.en);
   }
 
   // The dedication is written by a man, so Marek reads it.

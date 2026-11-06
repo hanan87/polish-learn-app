@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Ear, Headphones, Mic, Pause, Play, SkipForward, Volume2, X } from 'lucide-react';
+import { CheckCircle2, Ear, Headphones, Lightbulb, Mic, Pause, Play, SkipForward, Volume2, X, XCircle } from 'lucide-react';
 import { itemText } from '../data/types';
 import { handsFreeQueue } from '../lib/handsFreeQueue';
 import { Phonetic } from '../components/Phonetic';
@@ -7,8 +7,10 @@ import { PolishSyllables } from '../components/PolishSyllables';
 import { useSpeechRecorder, type RecorderResult } from '../hooks/useSpeechRecorder';
 import { useLang } from '../i18n/LangContext';
 import { haptic } from '../lib/haptics';
-import { scorePronunciation } from '../lib/text';
-import { RATE_NORMAL, RATE_SLOW, loadVoices, speak, speakNative, stopSpeaking } from '../lib/tts';
+import { scorePronunciation, type WordResult } from '../lib/text';
+import { COACH, type CoachLine } from '../data/coach';
+import { helpForMiss, judgeAttempt, SILENT_PAUSE_AFTER, SKIP_HINT_AFTER, type Help, type Outcome } from '../lib/handsFreeJudge';
+import { RATE_CHAIN, RATE_NORMAL, RATE_SLOW, loadVoices, speak, speakNative, speakSequence, stopSpeaking } from '../lib/tts';
 import { playCue } from '../lib/sfx';
 import { mediaRecordingSupported } from '../lib/env';
 import { itemWeakness, useProgress } from '../state/ProgressContext';
@@ -19,17 +21,19 @@ import { useMic } from '../state/MicContext';
  * Loop per word, with no taps needed:
  *   1. the meaning is spoken in Hebrew / English (when the device has such a voice) and shown large
  *   2. the Polish phrase is spoken slowly, then at normal speed
- *   3. a short cue, then the microphone opens; the attempt is scored
- *   4. success chime – or the Polish is repeated once more when the score is low
+ *   3. a short cue, then the microphone opens; the attempt is judged (lib/handsFreeJudge)
+ *   4. only a real recognition score ≥ 70 % passes. A miss is said out loud ("Not quite",
+ *      "I didn't recognize the word", "I didn't hear you"), followed by help that grows with each
+ *      miss – slow replay, the phrase built up in parts, the articulation tip – and another try,
+ *      until the word passes (the skip button moves on manually)
  *   5. after 2 seconds the next word starts
  * A Wake Lock keeps the screen on. Without a usable microphone the step becomes "repeat aloud"
  * with a timed pause, so the loop keeps going.
  */
 
-export const HANDS_FREE_PASS = 70;
 const NEXT_DELAY_MS = 2000;
 
-type Phase = 'meaning' | 'slow' | 'normal' | 'listen' | 'repeat' | 'feedback';
+type Phase = 'meaning' | 'slow' | 'normal' | 'listen' | 'repeat' | 'feedback' | 'help';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -96,9 +100,14 @@ export function HandsFree({ source, onExit }: { source: 'map' | 'vocab'; onExit:
   const [phase, setPhase] = useState<Phase>('meaning');
   const [paused, setPaused] = useState(false);
   const [score, setScore] = useState<number | null>(null);
-  const [heard, setHeard] = useState<boolean | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [heardText, setHeardText] = useState('');
+  const [words, setWords] = useState<WordResult[]>([]);
+  const [attempt, setAttempt] = useState(1);
+  const [help, setHelp] = useState<Help | null>(null);
+  const [cantCheck, setCantCheck] = useState(false);
   const [nativeVoice, setNativeVoice] = useState(true);
-  const [stats, setStats] = useState({ done: 0, passed: 0 });
+  const [stats, setStats] = useState({ done: 0, passed: 0, misses: 0 });
   // Bumped to restart the loop on another word (skip).
   const [runKey, setRunKey] = useState(0);
 
@@ -154,8 +163,6 @@ export function HandsFree({ source, onExit }: { source: 'map' | 'vocab'; onExit:
       while (alive() && queue.length) {
         const current = queue[indexRef.current % queue.length];
         const text = itemText(current, lang);
-        setScore(null);
-        setHeard(null);
 
         setPhase('meaning');
         const spoke = await speakNative(text.meaning, lang);
@@ -174,41 +181,105 @@ export function HandsFree({ source, onExit }: { source: 'map' | 'vocab'; onExit:
         if (!alive()) return;
         await sleep(250);
 
-        let s: number | null = null;
-        if (micOkRef.current) {
+        // Say a coaching line in the learner's language (shown on screen as well).
+        const coach = async (line: CoachLine) => {
+          await speakNative(COACH[line][lang], lang);
+        };
+
+        let misses = 0;
+        let silentInRow = 0;
+        let passed = false;
+        setAttempt(1);
+        setHelp(null);
+        while (alive() && !passed) {
+          setOutcome(null);
+          setScore(null);
+          setHeardText('');
+          setWords([]);
+
+          if (!micOkRef.current) {
+            // No microphone: "repeat after the speaker", then the model again so the learner can compare.
+            setPhase('repeat');
+            await sleep(Math.max(2500, current.polish.length * 140));
+            if (!alive()) return;
+            setPhase('feedback');
+            setOutcome('unchecked');
+            setCantCheck(true);
+            await speak(current.polish, RATE_NORMAL);
+            break;
+          }
+
           setPhase('listen');
           await playCue('listen');
           haptic('start');
           if (!alive()) return;
           const res = await recordOnce();
           if (!alive()) return;
-          if (res) {
-            setHeard(res.heardVoice);
-            if (res.recognized) {
-              s = scorePronunciation(current.polish, res.transcript).score;
-              recordPronunciation(current.id, current.polish, s, []);
-            }
-          }
-        } else {
-          // No microphone: classic "repeat after the speaker" pause, long enough for the phrase.
-          setPhase('repeat');
-          await sleep(Math.max(2500, current.polish.length * 140));
-          if (!alive()) return;
-        }
+          const verdict = judgeAttempt(current.polish, res);
+          setPhase('feedback');
+          setOutcome(verdict.outcome);
+          setScore(verdict.score);
+          setHeardText(verdict.heard);
+          if (verdict.heard) setWords(scorePronunciation(current.polish, verdict.heard).words);
+          if (verdict.score !== null) recordPronunciation(current.id, current.polish, verdict.score, []);
 
-        setPhase('feedback');
-        setScore(s);
-        if (s !== null && s < HANDS_FREE_PASS) {
+          if (verdict.outcome === 'pass') {
+            passed = true;
+            haptic('success');
+            await playCue('success');
+            if (!alive()) return;
+            await coach(misses ? 'passAfterHelp' : 'pass');
+            break;
+          }
+          if (verdict.outcome === 'unchecked') {
+            // The device cannot verify speech: say so honestly, model the phrase again and move on.
+            setCantCheck(true);
+            await coach('unchecked');
+            if (!alive()) return;
+            await speak(current.polish, RATE_NORMAL);
+            break;
+          }
+
+          // A miss: tell the learner, then help, then try again.
+          misses++;
+          silentInRow = verdict.outcome === 'silent' ? silentInRow + 1 : 0;
+          setStats((st) => ({ ...st, misses: st.misses + 1 }));
           haptic('error');
           await playCue('retry');
           if (!alive()) return;
-          await speak(current.polish, RATE_SLOW);
-        } else {
-          haptic('success');
-          await playCue('success');
+          await coach(verdict.outcome === 'silent' ? 'silent' : verdict.outcome === 'low' ? 'low' : 'unclear');
+          if (!alive()) return;
+          if (silentInRow >= SILENT_PAUSE_AFTER) {
+            await coach('paused');
+            setPaused(true);
+            return;
+          }
+
+          const h = helpForMiss(misses);
+          setHelp(h);
+          setPhase('help');
+          if (h === 'chunks') {
+            await coach('chunks');
+            if (!alive()) return;
+            await speakSequence([...current.backchainingSteps], RATE_CHAIN, undefined, 700);
+          } else if (h === 'tip') {
+            await speakNative(`${COACH.tip[lang]} ${text.tip}`, lang);
+            if (!alive()) return;
+            await speak(current.polish, RATE_SLOW);
+          } else {
+            await speak(current.polish, RATE_SLOW);
+            if (!alive()) return;
+            await sleep(500);
+            await speak(current.polish, RATE_NORMAL);
+          }
+          if (!alive()) return;
+          if (misses === SKIP_HINT_AFTER) await coach('skipHint');
+          if (!alive()) return;
+          await sleep(300);
+          setAttempt(misses + 1);
         }
         if (!alive()) return;
-        setStats((st) => ({ done: st.done + 1, passed: st.passed + (s === null || s >= HANDS_FREE_PASS ? 1 : 0) }));
+        setStats((st) => ({ ...st, done: st.done + 1, passed: st.passed + (passed ? 1 : 0) }));
         await sleep(NEXT_DELAY_MS);
         if (!alive()) return;
 
@@ -261,9 +332,29 @@ export function HandsFree({ source, onExit }: { source: 'map' | 'vocab'; onExit:
     normal: tr('בפולנית – בקצב רגיל', 'Polish – normal speed'),
     listen: tr('תורכם – אמרו בקול!', 'Your turn – say it aloud!'),
     repeat: tr('חזרו אחרי הדובר בקול', 'Repeat aloud after the speaker'),
-    feedback: score === null ? tr('יפה! ממשיכים…', 'Nice! Moving on…') : score >= HANDS_FREE_PASS ? tr(`מצוין – ${score}%`, `Great – ${score}%`) : tr(`${score}% – הקשיבו שוב`, `${score}% – listen once more`),
+    feedback:
+      outcome === 'pass'
+        ? `${COACH[attempt > 1 ? 'passAfterHelp' : 'pass'][lang]} ${score}%`
+        : outcome === 'low'
+          ? `${COACH.low[lang]} (${score}%)`
+          : outcome === 'unclear'
+            ? COACH.unclear[lang]
+            : outcome === 'silent'
+              ? COACH.silent[lang]
+              : outcome === 'unchecked'
+                ? tr('לא נבדק – השוו לדובר', 'Not checked – compare with the speaker')
+                : '',
+    help:
+      help === 'chunks'
+        ? COACH.chunks[lang]
+        : help === 'tip'
+          ? tr('טיפ להגייה', 'Pronunciation tip')
+          : tr('הקשיבו שוב: לאט, ואז רגיל', 'Listen again: slowly, then normal'),
   };
-  const PhaseIcon = phase === 'listen' ? Mic : phase === 'repeat' ? Ear : phase === 'meaning' ? Headphones : Volume2;
+  const miss = outcome === 'low' || outcome === 'unclear' || outcome === 'silent';
+  const PhaseIcon =
+    phase === 'listen' ? Mic : phase === 'repeat' ? Ear : phase === 'meaning' ? Headphones : phase === 'help' ? Lightbulb : outcome === 'pass' ? CheckCircle2 : miss ? XCircle : Volume2;
+  const phaseTone = phase === 'feedback' && outcome === 'pass' ? 'bg-[#059669]' : (phase === 'feedback' && miss) || phase === 'help' ? 'bg-[#be123c]' : 'bg-white/10';
 
   return (
     <div className="flex min-h-dvh flex-col bg-[linear-gradient(180deg,#1e1b4b,#312e81_55%,#0c4a6e)] text-white" data-testid="hands-free">
@@ -283,7 +374,7 @@ export function HandsFree({ source, onExit }: { source: 'map' | 'vocab'; onExit:
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
-        <p className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold" aria-live="polite" data-testid="hf-phase">
+        <p className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold ${phaseTone}`} aria-live="polite" data-testid="hf-phase">
           <PhaseIcon className={`size-4 ${phase === 'listen' ? 'animate-pulse text-[#fda4af]' : ''}`} /> {paused ? tr('מושהה', 'Paused') : phaseLabel[phase]}
         </p>
 
@@ -304,8 +395,45 @@ export function HandsFree({ source, onExit }: { source: 'map' | 'vocab'; onExit:
             <div className="h-full rounded-full bg-[#fb7185] transition-[width] duration-75" style={{ width: `${Math.max(4, recorder.level * 100)}%` }} />
           </div>
         )}
-        {phase === 'feedback' && heard === false && (
-          <p className="text-sm text-[#fde68a]">{tr('לא נקלט קול – נסו לדבר קרוב יותר למיקרופון.', 'No voice captured – try speaking closer to the microphone.')}</p>
+        {attempt > 1 && (phase === 'listen' || phase === 'feedback' || phase === 'help') && (
+          <p className="text-xs font-bold text-[#fde68a]" data-testid="hf-attempt">
+            {tr(`ניסיון ${attempt} – ממשיכים עד שמצליחים`, `Attempt ${attempt} – we keep going until you get it`)}
+          </p>
+        )}
+        {(phase === 'feedback' || phase === 'help') && heardText && (
+          <div className="space-y-1.5" data-testid="hf-heard">
+            <p className="text-sm text-white/80">
+              {tr('שמעתי:', 'I heard:')}{' '}
+              <span dir="ltr" className="polish font-bold text-white">
+                “{heardText}”
+              </span>
+            </p>
+            {miss && words.length > 0 && (
+              <p dir="ltr" className="polish flex flex-wrap justify-center gap-1.5 text-lg">
+                {words.map((w, i) => (
+                  <span key={i} className={`rounded-md px-1.5 ${w.matched ? 'bg-[#059669]/30 text-[#a7f3d0]' : 'bg-[#be123c]/40 text-[#fecdd3] line-through decoration-2'}`}>
+                    {w.word}
+                  </span>
+                ))}
+              </p>
+            )}
+          </div>
+        )}
+        {phase === 'help' && help === 'tip' && <p className="max-w-md rounded-xl bg-white/10 p-3 text-sm leading-relaxed text-white/90">{text.tip}</p>}
+        {phase === 'help' && help === 'chunks' && (
+          <p dir="ltr" className="polish flex flex-wrap justify-center gap-2 text-base text-[#bae6fd]">
+            {item.backchainingSteps.map((step, i) => (
+              <span key={i}>
+                {i > 0 && <span className="text-white/40">→ </span>}
+                {step}
+              </span>
+            ))}
+          </p>
+        )}
+        {cantCheck && (
+          <p className="max-w-sm text-xs text-[#fde68a]">
+            {tr('זיהוי דיבור לא זמין כאן, ולכן ההגייה לא נבדקת. ב-Chrome באנדרואיד ובמחשב הבדיקה עובדת.', 'Speech recognition is not available here, so pronunciation is not checked. Checking works in Chrome on Android and desktop.')}
+          </p>
         )}
 
         <button
@@ -319,7 +447,7 @@ export function HandsFree({ source, onExit }: { source: 'map' | 'vocab'; onExit:
         </button>
 
         <p className="text-xs text-white/60">
-          {tr(`${stats.done} מילים · ${stats.passed} הצלחות`, `${stats.done} words · ${stats.passed} passed`)}
+          {tr(`${stats.done} מילים · ${stats.passed} הצלחות · ${stats.misses} תיקונים`, `${stats.done} words · ${stats.passed} passed · ${stats.misses} corrections`)}
           {wakeLock && ` · ${tr('המסך יישאר דלוק', 'Screen stays on')}`}
         </p>
       </main>
