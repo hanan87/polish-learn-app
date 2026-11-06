@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Ear, Headphones, Lightbulb, Loader2, Mic, RotateCcw, Square, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useSpeechRecorder } from '../hooks/useSpeechRecorder';
+import type { CaptureMode } from '../lib/captureMode';
 import { useLang } from '../i18n/LangContext';
 import { isIOS, speechRecognitionSupported } from '../lib/env';
 import { normalize, scorePronunciation, similarity, type PronunciationResult } from '../lib/text';
@@ -26,6 +27,7 @@ interface Attempt {
   /** The recording exists but carries no usable sound (the browser gave the mic to speech recognition). */
   audioSilent: boolean;
   sttError: string | null;
+  mode: CaptureMode;
 }
 
 /** Human explanation of why automatic scoring was not available. */
@@ -124,6 +126,7 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
       noAudio,
       audioSilent: !r.audioUrl || r.audioLost || r.peakLevel < 0.004,
       sttError: r.sttError,
+      mode: r.mode,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recorder.result]);
@@ -149,6 +152,7 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
       noAudio: false,
       audioSilent: false,
       sttError: null,
+      mode: 'both',
     });
   };
 
@@ -276,10 +280,20 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
             <div className={`h-full rounded-full transition-[width] duration-75 ${recorder.heardVoice ? 'bg-emerald-500' : 'bg-amber-400'}`} style={{ width: `${Math.max(3, recorder.level * 100)}%` }} />
           </div>
           <p className={`text-center text-xs font-medium ${recorder.heardVoice ? 'text-emerald-700' : 'text-slate-500'}`}>
-            {recorder.heardVoice
-              ? tr('שומעים אתכם – ההקלטה תיעצר לבד כשתסיימו', 'We hear you – recording stops by itself when you finish')
-              : tr('מחכים לקול שלכם… אם הפס לא זז, המיקרופון לא קולט', 'Waiting for your voice… if the bar does not move, the mic is not picking up')}
+            {recorder.analyserDead
+              ? tr('מד העוצמה לא זמין בדפדפן הזה כרגע – דברו, ובסיום לחצו "סיימתי לדבר".', 'The level meter is unavailable in this browser right now – speak, then tap "I\'m done speaking".')
+              : recorder.heardVoice
+                ? tr('שומעים אתכם – ההקלטה תיעצר לבד כשתסיימו', 'We hear you – recording stops by itself when you finish')
+                : tr('מחכים לקול שלכם… אם הפס לא זז, המיקרופון לא קולט', 'Waiting for your voice… if the bar does not move, the mic is not picking up')}
           </p>
+          {/* Always offer a manual stop so the learner never depends on silence detection. */}
+          <button
+            type="button"
+            onClick={() => recorder.stop('manual')}
+            className="mx-auto mt-1 flex items-center gap-2 rounded-2xl bg-rose-600 px-5 py-3 text-sm font-bold text-white shadow-md active:scale-95"
+          >
+            <Square className="size-4 fill-white" /> {tr('סיימתי לדבר (עצור הקלטה)', "I'm done speaking (stop recording)")}
+          </button>
         </div>
       )}
       {recording && recorder.interim && (
@@ -347,10 +361,15 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
 
           {!canCompare && (
             <p className="rounded-xl bg-slate-100 p-3 text-xs text-slate-600">
-              {tr(
-                'הדפדפן לא שמר את הקול שלכם במקביל לזיהוי הדיבור, ולכן אי אפשר להשמיע את ההקלטה. הציון מבוסס על הזיהוי.',
-                'The browser did not keep your audio while recognizing speech, so your recording cannot be played back. The score is based on recognition.',
-              )}
+              {attempt.mode === 'stt'
+                ? tr(
+                    'במצב "זיהוי דיבור בלבד" לא נשמרת הקלטה, ולכן אין השוואת קולות. כדי לשמוע את עצמכם בחרו בהגדרות ← מצב הקלטה אחר.',
+                    'In "speech recognition only" mode no audio is kept, so there is no voice comparison. To hear yourself, pick another capture mode in Settings.',
+                  )
+                : tr(
+                    'הדפדפן לא שמר את הקול שלכם במקביל לזיהוי הדיבור, ולכן אי אפשר להשמיע את ההקלטה. הציון מבוסס על הזיהוי.',
+                    'The browser did not keep your audio while recognizing speech, so your recording cannot be played back. The score is based on recognition.',
+                  )}
             </p>
           )}
 

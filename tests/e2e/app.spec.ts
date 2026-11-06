@@ -114,10 +114,16 @@ test.describe('lessons and practice', () => {
     const input = page.getByPlaceholder('Napisz po polsku…');
     await input.fill('aba');
     await input.evaluate((el: HTMLInputElement) => el.setSelectionRange(0, 0));
-    await page.getByRole('button', { name: 'ż', exact: true }).dispatchEvent('pointerdown');
-    await expect(input).toHaveValue('żaba');
-    await page.getByRole('button', { name: 'sz', exact: true }).dispatchEvent('pointerdown');
+    // Two taps within the same frame must both land at the caret.
+    await page.evaluate(() => {
+      const fire = (label: string) =>
+        [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === label)?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+      fire('ż');
+      fire('sz');
+    });
     await expect(input).toHaveValue('ższaba');
+    await page.getByRole('button', { name: 'Backspace' }).dispatchEvent('pointerdown');
+    await expect(input).toHaveValue('żsaba');
   });
 
   test('personalized reinforcement builds exactly 8 exercises from weak items', async ({ page }) => {

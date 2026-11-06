@@ -3,6 +3,7 @@ import { Download, FileJson, Mic, Moon, RotateCcw, Smartphone, Target, Upload } 
 import { useLang } from '../i18n/LangContext';
 import { useTheme, type ThemeChoice } from '../i18n/ThemeContext';
 import { MicTest } from '../components/MicTest';
+import { CaptureModeSetting } from '../components/CaptureModeSetting';
 import { isStandaloneBuild } from '../lib/env';
 import { todayKey } from '../lib/date';
 import { useProgress } from '../state/ProgressContext';
@@ -90,6 +91,13 @@ export function Settings() {
           <Mic className="size-4 text-rose-600" /> {tr('בדיקת מיקרופון', 'Microphone test')}
         </p>
         <MicTest />
+      </section>
+
+      <section className={card}>
+        <p className="flex items-center gap-1.5 font-bold">
+          <Mic className="size-4 text-indigo-600" /> {tr('מצב הקלטה', 'Capture mode')}
+        </p>
+        <CaptureModeSetting />
       </section>
 
       <section className={card}>

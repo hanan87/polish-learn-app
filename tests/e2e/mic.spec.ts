@@ -41,7 +41,7 @@ test.describe('microphone pipeline (fake device playing speech)', () => {
     await expect(list).toContainText('Recording saved:');
     await expect(list).toContainText('yes');
     await page.getByText('Event log').click();
-    await expect(page.locator('details ol')).toContainText('getUserMedia-ok');
+    await expect(page.locator('details ol')).toContainText('state=live muted=false');
     await expect(page.locator('details ol')).toContainText('voice-detected');
     await expect(page.locator('details ol')).toContainText('recorder-stop');
     await expect(page.getByRole('button', { name: 'Play recording' })).toBeVisible();

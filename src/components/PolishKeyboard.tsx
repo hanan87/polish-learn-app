@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from 'react';
 import { ArrowBigUp, Delete, Space } from 'lucide-react';
 import { useLang } from '../i18n/LangContext';
 
@@ -19,30 +19,50 @@ interface Props {
 export function PolishKeyboard({ inputRef, value, onChange }: Props) {
   const [shift, setShift] = useState(false);
   const { tr } = useLang();
+  // Caret position to restore after React re-renders the controlled input with the new value.
+  const pendingCaret = useRef<number | null>(null);
+  // Latest text, updated synchronously on every tap so quick taps never work on a stale value.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  // Runs synchronously after the DOM update, before the browser handles the next key tap –
+  // so two fast taps both land at the caret instead of the second one jumping to the end.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (el && pendingCaret.current !== null) {
+      el.setSelectionRange(pendingCaret.current, pendingCaret.current);
+      pendingCaret.current = null;
+    }
+  }, [value, inputRef]);
+
+  const selection = () => {
+    const el = inputRef.current;
+    const len = valueRef.current.length;
+    const start = pendingCaret.current ?? el?.selectionStart ?? len;
+    const end = pendingCaret.current ?? el?.selectionEnd ?? len;
+    return [start, end] as const;
+  };
 
   const insert = (text: string) => {
-    const el = inputRef.current;
-    const start = el?.selectionStart ?? value.length;
-    const end = el?.selectionEnd ?? value.length;
+    const [start, end] = selection();
     const chunk = shift ? text.charAt(0).toLocaleUpperCase('pl-PL') + text.slice(1) : text;
-    const next = value.slice(0, start) + chunk + value.slice(end);
+    const current = valueRef.current;
+    const next = current.slice(0, start) + chunk + current.slice(end);
+    pendingCaret.current = start + chunk.length;
+    valueRef.current = next;
     onChange(next);
     setShift(false);
-    requestAnimationFrame(() => {
-      if (!el) return;
-      const pos = start + chunk.length;
-      el.setSelectionRange(pos, pos);
-    });
   };
 
   const backspace = () => {
-    const el = inputRef.current;
-    const start = el?.selectionStart ?? value.length;
-    const end = el?.selectionEnd ?? value.length;
+    const [start, end] = selection();
     if (start === 0 && end === 0) return;
     const from = start === end ? start - 1 : start;
-    onChange(value.slice(0, from) + value.slice(end));
-    requestAnimationFrame(() => el?.setSelectionRange(from, from));
+    const current = valueRef.current;
+    const next = current.slice(0, from) + current.slice(end);
+    pendingCaret.current = from;
+    valueRef.current = next;
+    onChange(next);
   };
 
   const keyCls =

@@ -1,25 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createAudioContext, getRecognizerCtor, isAndroid, pickRecorderMimeType, type Recognizer } from '../lib/env';
+import {
+  closeCapture,
+  getAudioContext,
+  getFreshStream,
+  killRecognizer,
+  measureBlobPeak,
+  openCapture,
+  rebuildAudioContext,
+  stopRecorder,
+  type Capture,
+} from '../lib/audioEngine';
+import { getCapturePreference, learnMode, resolveCaptureMode, type CaptureMode } from '../lib/captureMode';
+import { getRecognizerCtor, isAndroid, ttsSupported, type Recognizer } from '../lib/env';
 import { micLog, sttSession } from '../lib/micLog';
 import { normalize, similarity } from '../lib/text';
 import { stopSpeaking } from '../lib/tts';
 import { useMic } from '../state/MicContext';
 
 /**
- * Dual capture engine. When recording starts, two mechanisms run in parallel:
- *   A. getUserMedia -> MediaRecorder (the learner's real audio as a Blob URL) + an AnalyserNode
- *      that drives the live waveform, a level meter and voice-activity detection (VAD).
- *   B. SpeechRecognition (pl-PL) transcribing what the learner said.
+ * Pronunciation capture engine.
  *
- * Robustness rules (each fixes a failure seen on real devices):
- *   - Only a getUserMedia failure blocks the microphone. Speech-recognition errors never do;
- *     they only switch scoring to self-assessment.
- *   - Recording stops when the learner taps stop, when VAD detects ~1.5 s of silence after speech,
- *     when recognition returns a phrase close to the target, or at a hard time limit –
- *     never just because recognition produced its first (possibly partial) result.
- *   - Recognition that ends early (Chrome stops after a pause) is restarted while recording.
- *   - Every callback is tied to a session id, so late events from an old attempt cannot close a new one.
- *   - The result reports whether any voice was heard, so silent attempts are not scored as 0%.
+ * Capture modes (see lib/captureMode): 'both' runs MediaRecorder + AnalyserNode (own-voice playback,
+ * level meter, voice-activity detection) in parallel with SpeechRecognition (score); 'stt' uses
+ * speech recognition only; 'record' uses the recorder only.
+ *
+ * Lifecycle guarantees – each one fixes a failure seen on real devices:
+ *   - Before every attempt: pending TTS is cancelled (it can hold the audio session), the previous
+ *     recognizer is aborted with all listeners removed, and the previous stream, nodes and recorder
+ *     are fully released. A fresh MediaStream is requested and checked to be live and unmuted, and
+ *     the shared AudioContext is resumed after the stream exists.
+ *   - Zero-signal watchdog: if the analyser returns exact digital silence for 1.5 s, the context
+ *     and stream are rebuilt once; if that does not help, VAD is disabled for this attempt and the
+ *     learner finishes with the manual stop button (scoring still works through recognition).
+ *   - Recording stops on: the manual stop button, ~1.5 s of silence after speech, recognition
+ *     returning a phrase close to the target, or a hard time limit – never on a partial result.
+ *   - Every callback is tied to a session id, so late events from an older attempt are ignored.
+ *   - After stopping, the recording is decoded offline to measure its real level, so a frozen
+ *     analyser can never turn a good recording into "no sound captured".
  */
 
 export type RecorderStatus = 'idle' | 'starting' | 'recording' | 'processing' | 'done';
@@ -31,13 +48,14 @@ export interface RecorderResult {
   recognized: boolean;
   /** Recognition error code, if any (network, not-allowed, audio-capture, language-not-supported, unsupported…). */
   sttError: string | null;
-  /** Highest input level seen (0–1 RMS). */
+  /** Highest input level seen (0–1 RMS), live or measured from the recording. */
   peakLevel: number;
-  /** VAD saw input above the speech threshold. */
+  /** Voice was detected (by the analyser, the decoded recording, or speech recognition). */
   heardVoice: boolean;
   /** The microphone track ended before the learner stopped (another capture took the mic). */
   audioLost: boolean;
   durationMs: number;
+  mode: CaptureMode;
 }
 
 interface Options {
@@ -48,9 +66,58 @@ interface Options {
 const SPEECH_RMS = 0.025;
 const SILENCE_AFTER_SPEECH_MS = 1500;
 const NO_VOICE_TIMEOUT_MS = 8000;
+const ZERO_SIGNAL_MS = 1500;
 // Android Chrome beeps on every recognition start, so restart at most once there.
 const MAX_RECOG_RESTARTS = isAndroid ? 1 : 3;
 const FATAL_STT = new Set(['not-allowed', 'service-not-allowed', 'language-not-supported', 'network']);
+
+interface Attempt {
+  mode: CaptureMode;
+  startedAt: number;
+  captureStartedAt: number;
+  audioUrl: string | null;
+  audioReady: boolean;
+  recogDone: boolean;
+  segments: string[];
+  lastAlternatives: string[];
+  sttError: string | null;
+  sttSound: boolean;
+  restarts: number;
+  peak: number;
+  decodedPeak: number | null;
+  heard: boolean;
+  lastVoiceAt: number;
+  audioLost: boolean;
+  everNonZero: boolean;
+  watchdogRestarts: number;
+  watchdogBusy: boolean;
+  analyserDead: boolean;
+}
+
+const newAttempt = (mode: CaptureMode): Attempt => ({
+  mode,
+  startedAt: Date.now(),
+  captureStartedAt: Date.now(),
+  audioUrl: null,
+  audioReady: mode === 'stt',
+  recogDone: mode === 'record',
+  segments: [],
+  lastAlternatives: [],
+  sttError: null,
+  sttSound: false,
+  restarts: 0,
+  peak: 0,
+  decodedPeak: null,
+  heard: false,
+  lastVoiceAt: 0,
+  audioLost: false,
+  everNonZero: false,
+  watchdogRestarts: 0,
+  watchdogBusy: false,
+  analyserDead: false,
+});
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function useSpeechRecorder({ target, maxDurationMs }: Options) {
   const mic = useMic();
@@ -60,35 +127,19 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
   const [error, setError] = useState<string | null>(null);
   const [level, setLevel] = useState(0);
   const [heardVoice, setHeardVoice] = useState(false);
+  const [analyserDead, setAnalyserDead] = useState(false);
+  const [mode, setMode] = useState<CaptureMode>('both');
 
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
+  const captureRef = useRef<Capture | null>(null);
   const recognizerRef = useRef<Recognizer | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const statusRef = useRef<RecorderStatus>('idle');
   const sessionRef = useRef(0);
   const timersRef = useRef<number[]>([]);
   const vadTimerRef = useRef<number | null>(null);
   const targetRef = useRef(target);
   targetRef.current = target;
-
-  // Per-attempt state kept in a ref so async callbacks always see the current attempt.
-  const attemptRef = useRef({
-    startedAt: 0,
-    audioUrl: null as string | null,
-    audioReady: false,
-    recogDone: true,
-    segments: [] as string[],
-    lastAlternatives: [] as string[],
-    sttError: null as string | null,
-    restarts: 0,
-    peak: 0,
-    heard: false,
-    lastVoiceAt: 0,
-    audioLost: false,
-  });
+  const attemptRef = useRef<Attempt>(newAttempt('both'));
 
   const updateStatus = (s: RecorderStatus) => {
     statusRef.current = s;
@@ -108,12 +159,14 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
     timersRef.current.push(window.setTimeout(fn, ms));
   };
 
-  const releaseMedia = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
+  /** Release every resource of the current/previous attempt. */
+  const teardown = () => {
+    clearTimers();
+    killRecognizer(recognizerRef.current);
+    recognizerRef.current = null;
+    closeCapture(captureRef.current);
+    captureRef.current = null;
     analyserRef.current = null;
-    audioCtxRef.current?.close().catch(() => undefined);
-    audioCtxRef.current = null;
   };
 
   /** Candidate transcripts: all final segments joined, with each alternative of the last segment. */
@@ -130,21 +183,31 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
   const finalize = (session: number) => {
     if (session !== sessionRef.current) return;
     const a = attemptRef.current;
-    if (!a.audioReady || !a.recogDone) return;
-    if (statusRef.current !== 'processing') return;
-    clearTimers();
+    if (!a.audioReady || !a.recogDone || statusRef.current !== 'processing') return;
+    teardown();
     const transcript = bestTranscript();
+    const peak = Math.max(a.peak, a.decodedPeak ?? 0);
+    const heard = a.heard || a.sttSound || (a.decodedPeak ?? 0) > SPEECH_RMS * 0.8;
     const res: RecorderResult = {
       audioUrl: a.audioUrl,
       transcript,
       recognized: transcript.length > 0,
       sttError: a.sttError,
-      peakLevel: Math.round(a.peak * 1000) / 1000,
-      heardVoice: a.heard,
+      peakLevel: Math.round(peak * 1000) / 1000,
+      heardVoice: heard,
       audioLost: a.audioLost,
       durationMs: Date.now() - a.startedAt,
+      mode: a.mode,
     };
-    micLog('result', `transcript="${transcript}" peak=${res.peakLevel} voice=${res.heardVoice} stt=${res.sttError ?? 'ok'} audio=${!!res.audioUrl}`);
+    // In automatic mode, remember what does not work on this device.
+    if (getCapturePreference() === 'auto') {
+      if (a.mode !== 'record' && sttSession.disabled) learnMode('record');
+      else if (a.mode === 'both' && a.analyserDead && res.recognized) learnMode('stt');
+    }
+    micLog(
+      'result',
+      `mode=${a.mode} transcript="${transcript}" peak=${res.peakLevel} decoded=${a.decodedPeak?.toFixed(3) ?? '-'} voice=${heard} stt=${a.sttError ?? 'ok'} audio=${!!a.audioUrl}`,
+    );
     setResult(res);
     setInterim('');
     setLevel(0);
@@ -154,52 +217,68 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
   const stop = useCallback((reason = 'user') => {
     if (statusRef.current !== 'recording' && statusRef.current !== 'starting') return;
     const session = sessionRef.current;
+    const a = attemptRef.current;
     micLog('stop', reason);
     updateStatus('processing');
     if (vadTimerRef.current) {
       clearInterval(vadTimerRef.current);
       vadTimerRef.current = null;
     }
-    const a = attemptRef.current;
-    try {
-      recognizerRef.current?.stop();
-    } catch {
+
+    // Recognition: ask for the final result, then hard-abort after a grace period.
+    const recog = recognizerRef.current;
+    if (recog && !a.recogDone) {
+      try {
+        recog.stop();
+      } catch {
+        a.recogDone = true;
+      }
+      later(() => {
+        if (session !== sessionRef.current || a.recogDone) return;
+        micLog('stt-abort', 'no onend after stop');
+        a.recogDone = true;
+        killRecognizer(recog);
+        finalize(session);
+      }, 1500);
+    } else {
       a.recogDone = true;
     }
-    const rec = recorderRef.current;
-    if (rec && rec.state !== 'inactive') {
-      try {
-        rec.stop();
-      } catch {
+
+    // Recorder: collect the blob, release the microphone, then measure the real level offline.
+    const cap = captureRef.current;
+    if (cap && !a.audioReady) {
+      stopRecorder(cap).then(async (blob) => {
+        if (session !== sessionRef.current) return;
+        closeCapture(cap);
+        if (captureRef.current === cap) captureRef.current = null;
+        analyserRef.current = null;
+        a.audioUrl = blob ? URL.createObjectURL(blob) : null;
+        micLog('recorder-stop', blob ? `${blob.size} bytes ${blob.type}` : 'empty');
+        a.decodedPeak = await measureBlobPeak(blob);
+        if (session !== sessionRef.current) return;
         a.audioReady = true;
-        releaseMedia();
-      }
+        finalize(session);
+      });
     } else {
       a.audioReady = true;
-      releaseMedia();
     }
-    // Some engines never fire onend/onstop (seen on iOS). Never hang the UI.
+
+    // Never hang the UI if an engine fails to report back.
     later(() => {
       if (session !== sessionRef.current) return;
       a.recogDone = true;
       a.audioReady = true;
-      releaseMedia();
       finalize(session);
-    }, 3000);
+    }, 5000);
     finalize(session);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startRecognition = (session: number) => {
-    const Ctor = getRecognizerCtor();
     const a = attemptRef.current;
-    if (!Ctor) {
-      a.sttError = 'unsupported';
-      a.recogDone = true;
-      return;
-    }
-    if (sttSession.disabled) {
-      a.sttError = sttSession.reason;
+    const Ctor = getRecognizerCtor();
+    if (!Ctor || sttSession.disabled) {
+      a.sttError = Ctor ? sttSession.reason : 'unsupported';
       a.recogDone = true;
       return;
     }
@@ -209,8 +288,17 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
     recog.continuous = false;
     recog.interimResults = true;
     recog.maxAlternatives = 5;
+    const ext = recog as Recognizer & { onsoundstart?: (() => void) | null; onspeechstart?: (() => void) | null };
+    const onSound = () => {
+      if (session !== sessionRef.current) return;
+      a.sttSound = true;
+      if (a.mode === 'stt') setHeardVoice(true);
+    };
+    ext.onsoundstart = onSound;
+    ext.onspeechstart = onSound;
     recog.onresult = (e) => {
       if (session !== sessionRef.current) return;
+      a.sttSound = true;
       let interimText = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const res = e.results[i];
@@ -242,16 +330,29 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
     };
     recog.onend = () => {
       if (session !== sessionRef.current) return;
-      // Chrome ends recognition after a pause; keep listening while the learner is still recording.
       const fatal = a.sttError && (FATAL_STT.has(a.sttError) || a.sttError === 'audio-capture');
-      if (statusRef.current === 'recording' && !fatal && a.restarts < MAX_RECOG_RESTARTS) {
-        a.restarts++;
-        micLog('stt-restart', String(a.restarts));
-        try {
-          recog.start();
+      if (statusRef.current === 'recording') {
+        // In speech-only mode a finished utterance ends the attempt.
+        if (a.mode === 'stt' && a.segments.length) {
+          a.recogDone = true;
+          stop('stt-end');
           return;
-        } catch {
-          // fall through: treat as finished
+        }
+        // Chrome ends recognition after a pause; keep listening while the learner is still recording.
+        if (!fatal && a.restarts < MAX_RECOG_RESTARTS) {
+          a.restarts++;
+          micLog('stt-restart', String(a.restarts));
+          try {
+            recog.start();
+            return;
+          } catch {
+            // fall through: treat as finished
+          }
+        }
+        if (a.mode === 'stt') {
+          a.recogDone = true;
+          stop('stt-end');
+          return;
         }
       }
       a.recogDone = true;
@@ -268,118 +369,112 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
     }
   };
 
+  /** Zero-signal watchdog: rebuild the audio context and stream once; then give up on VAD for this attempt. */
+  const recoverDeadChannel = async (session: number) => {
+    const a = attemptRef.current;
+    if (a.watchdogBusy) return;
+    a.watchdogBusy = true;
+    if (a.watchdogRestarts >= 1) {
+      a.analyserDead = true;
+      setAnalyserDead(true);
+      micLog('analyser-dead', 'continuing without level meter');
+      a.watchdogBusy = false;
+      return;
+    }
+    a.watchdogRestarts++;
+    micLog('watchdog-restart', 'analyser returned digital silence');
+    closeCapture(captureRef.current);
+    captureRef.current = null;
+    analyserRef.current = null;
+    try {
+      await rebuildAudioContext();
+      const stream = await getFreshStream();
+      if (session !== sessionRef.current || statusRef.current !== 'recording') {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      const cap = await openCapture(stream, a.mode !== 'stt');
+      captureRef.current = cap;
+      analyserRef.current = cap.analyser;
+      a.captureStartedAt = Date.now();
+      a.everNonZero = false;
+    } catch (err) {
+      micLog('watchdog-failed', String(err));
+      a.analyserDead = true;
+      setAnalyserDead(true);
+    } finally {
+      a.watchdogBusy = false;
+    }
+  };
+
   const start = useCallback(async () => {
     if (statusRef.current === 'recording' || statusRef.current === 'starting' || statusRef.current === 'processing') return;
+
+    // An active or stuck TTS utterance can hold the audio session – cancel it and give it a moment.
+    const wasSpeaking = ttsSupported && (window.speechSynthesis.speaking || window.speechSynthesis.pending);
     stopSpeaking();
-    clearTimers();
-    const session = ++sessionRef.current;
+    if (ttsSupported) window.speechSynthesis.cancel();
+
+    // Release everything from the previous attempt before touching the microphone again.
+    teardown();
     if (attemptRef.current.audioUrl) URL.revokeObjectURL(attemptRef.current.audioUrl);
-    attemptRef.current = {
-      startedAt: Date.now(),
-      audioUrl: null,
-      audioReady: false,
-      recogDone: true,
-      segments: [],
-      lastAlternatives: [],
-      sttError: null,
-      restarts: 0,
-      peak: 0,
-      heard: false,
-      lastVoiceAt: 0,
-      audioLost: false,
-    };
+    const session = ++sessionRef.current;
+    const captureMode = resolveCaptureMode();
+    attemptRef.current = newAttempt(captureMode);
     const a = attemptRef.current;
+    setMode(captureMode);
     setError(null);
     setResult(null);
     setInterim('');
     setLevel(0);
     setHeardVoice(false);
+    setAnalyserDead(false);
     updateStatus('starting');
-    micLog('start', `target="${targetRef.current}"`);
+    micLog('start', `#${session} mode=${captureMode} target="${targetRef.current}"`);
 
-    // The AudioContext must be created synchronously inside the user gesture (iOS).
-    const audioCtx = createAudioContext();
-    audioCtxRef.current = audioCtx;
-    audioCtx?.resume().catch(() => undefined);
+    // Unlock the shared AudioContext inside the user's tap (iOS).
+    getAudioContext()?.resume().catch(() => undefined);
+    if (wasSpeaking) await sleep(200);
 
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
-    } catch (err) {
-      const name = err instanceof Error ? err.name : String(err);
-      micLog('getUserMedia-error', name);
-      mic.reportMediaError(err);
-      setError(name);
-      releaseMedia();
-      updateStatus('idle');
-      return;
-    }
-    if (session !== sessionRef.current) {
-      stream.getTracks().forEach((t) => t.stop());
-      return;
-    }
-    streamRef.current = stream;
-    mic.reportMediaOk();
-    const track = stream.getAudioTracks()[0];
-    micLog('getUserMedia-ok', `${track?.label || 'microphone'} muted=${track?.muted}`);
-    if (track) {
-      track.onended = () => {
-        if (session !== sessionRef.current) return;
-        a.audioLost = true;
-        micLog('track-ended');
-      };
-    }
-
-    // A. Analyser for waveform, level meter and VAD.
-    if (audioCtx) {
+    if (captureMode !== 'stt') {
+      let stream: MediaStream;
       try {
-        if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => undefined);
-        const source = audioCtx.createMediaStreamSource(stream);
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 1024;
-        analyser.smoothingTimeConstant = 0.5;
-        source.connect(analyser);
-        analyserRef.current = analyser;
+        stream = await getFreshStream();
       } catch (err) {
-        micLog('analyser-error', String(err));
+        const name = err instanceof Error ? err.name : String(err);
+        micLog('getUserMedia-error', name);
+        mic.reportMediaError(err);
+        setError(name);
+        updateStatus('idle');
+        return;
       }
-    }
-
-    // A. MediaRecorder (timeslice so data is captured even if stop() misbehaves).
-    try {
-      const mimeType = pickRecorderMimeType();
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        if (session !== sessionRef.current) return;
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType || 'audio/webm' });
-        a.audioUrl = blob.size > 0 ? URL.createObjectURL(blob) : null;
-        a.audioReady = true;
-        micLog('recorder-stop', `${blob.size} bytes ${blob.type}`);
-        releaseMedia();
-        finalize(session);
-      };
-      recorder.onerror = (e) => micLog('recorder-error', String((e as unknown as { error?: Error }).error ?? e.type));
-      recorderRef.current = recorder;
-      recorder.start(250);
-      micLog('recorder-start', recorder.mimeType);
-    } catch (err) {
-      micLog('recorder-unavailable', String(err));
-      recorderRef.current = null;
-      a.audioReady = true;
+      if (session !== sessionRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      mic.reportMediaOk();
+      const track = stream.getAudioTracks()[0];
+      if (track) {
+        track.onended = () => {
+          if (session !== sessionRef.current) return;
+          a.audioLost = true;
+          micLog('track-ended');
+        };
+      }
+      const cap = await openCapture(stream, true);
+      if (session !== sessionRef.current) {
+        closeCapture(cap);
+        return;
+      }
+      captureRef.current = cap;
+      analyserRef.current = cap.analyser;
+      a.captureStartedAt = Date.now();
     }
 
     updateStatus('recording');
+    if (captureMode !== 'record') startRecognition(session);
 
-    // B. Speech recognition in parallel.
-    startRecognition(session);
-
-    // VAD loop: level meter + auto-stop after speech followed by silence, or when nothing is heard.
+    // VAD loop: level meter, zero-signal watchdog, auto-stop after speech + silence or when nothing is heard.
     const buf = new Float32Array(1024);
     const hardLimit = maxDurationMs ?? Math.min(15000, 5000 + targetRef.current.length * 200);
     let lastUiUpdate = 0;
@@ -387,31 +482,56 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
       if (session !== sessionRef.current || statusRef.current !== 'recording') return;
       const now = Date.now();
       const elapsed = now - a.startedAt;
-      const analyser = analyserRef.current;
-      if (analyser && !a.audioLost) {
-        const n = Math.min(buf.length, analyser.fftSize);
-        analyser.getFloatTimeDomainData(buf.subarray(0, n));
-        let sum = 0;
-        for (let i = 0; i < n; i++) sum += buf[i] * buf[i];
-        const rms = Math.sqrt(sum / n);
-        a.peak = Math.max(a.peak, rms);
-        if (rms > SPEECH_RMS) {
-          if (!a.heard) {
-            a.heard = true;
-            setHeardVoice(true);
-            micLog('voice-detected', rms.toFixed(3));
-          }
-          a.lastVoiceAt = now;
-        }
-        if (now - lastUiUpdate > 90) {
-          lastUiUpdate = now;
-          setLevel(Math.min(1, rms * 6));
-        }
-        if (a.heard && now - a.lastVoiceAt > SILENCE_AFTER_SPEECH_MS && elapsed > 1200) stop('silence');
-        else if (!a.heard && elapsed > NO_VOICE_TIMEOUT_MS) stop('no-voice');
+      if (elapsed > hardLimit) {
+        stop('time-limit');
+        return;
       }
-      if (elapsed > hardLimit) stop('time-limit');
+
+      if (a.mode === 'stt') {
+        // No analyser in speech-only mode: show recognition activity instead.
+        if (now - lastUiUpdate > 120) {
+          lastUiUpdate = now;
+          setLevel(a.sttSound ? 0.35 + Math.random() * 0.4 : 0.03);
+        }
+        if (!a.sttSound && elapsed > NO_VOICE_TIMEOUT_MS) stop('no-voice');
+        return;
+      }
+
+      const analyser = analyserRef.current;
+      if (!analyser || a.audioLost || a.analyserDead || a.watchdogBusy) return;
+      const n = Math.min(buf.length, analyser.fftSize);
+      analyser.getFloatTimeDomainData(buf.subarray(0, n));
+      let sum = 0;
+      let maxAbs = 0;
+      for (let i = 0; i < n; i++) {
+        const v = buf[i];
+        sum += v * v;
+        if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
+      }
+      if (maxAbs > 0) a.everNonZero = true;
+      else if (!a.everNonZero && now - a.captureStartedAt > ZERO_SIGNAL_MS) {
+        // Exact digital silence: a real microphone always has a noise floor, so the channel is dead.
+        void recoverDeadChannel(session);
+        return;
+      }
+      const rms = Math.sqrt(sum / n);
+      a.peak = Math.max(a.peak, rms);
+      if (rms > SPEECH_RMS) {
+        if (!a.heard) {
+          a.heard = true;
+          setHeardVoice(true);
+          micLog('voice-detected', rms.toFixed(3));
+        }
+        a.lastVoiceAt = now;
+      }
+      if (now - lastUiUpdate > 90) {
+        lastUiUpdate = now;
+        setLevel(Math.min(1, rms * 6));
+      }
+      if (a.heard && now - a.lastVoiceAt > SILENCE_AFTER_SPEECH_MS && elapsed > 1200) stop('silence');
+      else if (!a.heard && a.everNonZero && elapsed > NO_VOICE_TIMEOUT_MS) stop('no-voice');
     }, 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mic, maxDurationMs, stop]);
 
   const reset = useCallback(() => {
@@ -425,20 +545,12 @@ export function useSpeechRecorder({ target, maxDurationMs }: Options) {
   useEffect(
     () => () => {
       sessionRef.current++;
-      clearTimers();
-      try {
-        recognizerRef.current?.abort();
-      } catch {
-        // already stopped
-      }
-      if (recorderRef.current && recorderRef.current.state !== 'inactive') recorderRef.current.stop();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      audioCtxRef.current?.close().catch(() => undefined);
+      teardown();
       if (attemptRef.current.audioUrl) URL.revokeObjectURL(attemptRef.current.audioUrl);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
-  return { status, interim, result, error, level, heardVoice, analyserRef, start, stop, reset };
+  return { status, interim, result, error, level, heardVoice, analyserDead, mode, analyserRef, start, stop, reset };
 }
