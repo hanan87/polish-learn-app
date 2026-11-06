@@ -3,6 +3,7 @@ import { Download, FileJson, Mic, Moon, RotateCcw, Smartphone, Target, Upload } 
 import { useLang } from '../i18n/LangContext';
 import { useTheme, type ThemeChoice } from '../i18n/ThemeContext';
 import { MicTest } from '../components/MicTest';
+import { versionLabel } from '../lib/pwaUpdate';
 import { CaptureModeSetting } from '../components/CaptureModeSetting';
 import { isStandaloneBuild } from '../lib/env';
 import { todayKey } from '../lib/date';
@@ -12,7 +13,7 @@ import { LangSwitch } from '../components/TopBar';
 
 /** Settings: language, daily goal, standalone download, JSON backup/restore and reset. */
 export function Settings() {
-  const { tr } = useLang();
+  const { tr, lang } = useLang();
   const theme = useTheme();
   const { state, setDailyGoal, exportJson, importJson, resetAll } = useProgress();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -47,7 +48,12 @@ export function Settings() {
 
   return (
     <div className="space-y-4 pt-2">
-      <h2 className="text-xl font-black">{tr('הגדרות', 'Settings')}</h2>
+      <div>
+        <h2 className="text-xl font-black">{tr('הגדרות', 'Settings')}</h2>
+        <p className="text-xs text-slate-500" data-testid="app-version">
+          {tr('גרסה', 'Version')} {versionLabel(lang === 'he' ? 'he-IL' : 'en-GB')}
+        </p>
+      </div>
 
       <section className={card}>
         <div className="flex items-center justify-between gap-3">

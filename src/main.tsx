@@ -7,6 +7,9 @@ import { LangProvider } from './i18n/LangContext';
 import { ThemeProvider } from './i18n/ThemeContext';
 import { ProgressProvider } from './state/ProgressContext';
 import { MicProvider } from './state/MicContext';
+import { initPwaUpdates } from './lib/pwaUpdate';
+
+initPwaUpdates();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -4,6 +4,7 @@ import { useSpeechRecorder } from '../hooks/useSpeechRecorder';
 import { useLang } from '../i18n/LangContext';
 import { getRecognizerCtor, isInIframe, mediaRecordingSupported, pickRecorderMimeType } from '../lib/env';
 import { getMicLog, subscribeMicLog } from '../lib/micLog';
+import { versionLabel } from '../lib/pwaUpdate';
 import { MIC_STATUS_MESSAGES, useMic } from '../state/MicContext';
 
 const PHRASE = 'Dzień dobry';
@@ -76,6 +77,7 @@ export function MicTest() {
       </div>
 
       <ul className="space-y-1 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+        {row(null, tr('גרסת האפליקציה', 'App version'), versionLabel('en-GB'))}
         {row(window.isSecureContext, tr('חיבור מאובטח', 'Secure context'), String(window.isSecureContext))}
         {row(!isInIframe, tr('מחוץ ל-iframe', 'Not in an iframe'), String(!isInIframe))}
         {row(mediaRecordingSupported, 'MediaRecorder', pickRecorderMimeType() ?? (mediaRecordingSupported ? 'default' : 'none'))}

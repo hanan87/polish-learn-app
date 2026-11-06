@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -25,13 +26,39 @@ function inlineIcons(): Plugin {
   };
 }
 
+/** Build identity shown in Settings, so a learner can tell which version is actually running. */
+function buildVersion(): string {
+  const fromCi = process.env.GITHUB_SHA?.slice(0, 7);
+  if (fromCi) return fromCi;
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
+
+const define = {
+  __APP_VERSION__: JSON.stringify(buildVersion()),
+  __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+};
+
+/** The standalone build has no service worker: resolve the PWA virtual module to a no-op. */
+function pwaRegisterStub(): Plugin {
+  return {
+    name: 'pwa-register-stub',
+    resolveId: (id) => (id === 'virtual:pwa-register' ? 'pwa-register-stub' : null),
+    load: (id) => (id === 'pwa-register-stub' ? 'export function registerSW() { return () => Promise.resolve(); }' : null),
+  };
+}
+
 export default defineConfig(({ mode }) => {
   // `vite build --mode standalone` produces one self-contained index.html (React, Tailwind, fonts and icon inlined)
   // that runs from file:// or any host, outside of any iframe that blocks the microphone.
   if (mode === 'standalone') {
     return {
       base: './',
-      plugins: [react(), tailwindcss(), viteSingleFile(), inlineIcons()],
+      define,
+      plugins: [react(), tailwindcss(), viteSingleFile(), inlineIcons(), pwaRegisterStub()],
       build: {
         outDir: 'standalone-dist',
         emptyOutDir: true,
@@ -43,11 +70,14 @@ export default defineConfig(({ mode }) => {
   return {
     // GitHub Pages serves the site from /<repo>/; the deploy workflow sets BASE_PATH.
     base: process.env.BASE_PATH || '/',
+    define,
     plugins: [
       react(),
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        // Registered from src/lib/pwaUpdate.ts, which reloads the page when a new version takes over.
+        injectRegister: false,
         includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'logo.svg'],
         manifest: {
           name: 'Polski od zera – פולנית מאפס / Polish from Zero',
@@ -68,6 +98,11 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
+          // Activate a new deploy at once AND take control of already-open pages; without clientsClaim
+          // the new worker never controls the open app, so it never reloads into the new version.
+          skipWaiting: true,
+          clientsClaim: true,
+          cleanupOutdatedCaches: true,
           globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
           // The standalone HTML is a download, not part of the app shell.
           globIgnores: ['**/polish-learn-standalone.html'],
