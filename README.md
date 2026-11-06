@@ -9,6 +9,7 @@ A mobile-first PWA for learning Polish from zero, for **Hebrew** speakers (RTL, 
 - Spaced repetition, per-word and per-sound weakness tracking, personalized 8-exercise reinforcement, personal dictionary
 - Voice roleplay: 4 real-life scenarios
 - Standalone single-file `index.html` download and JSON backup/restore
+- Light / dark / device theme; built-in microphone diagnostic in Settings
 
 ## Development
 
@@ -16,6 +17,11 @@ A mobile-first PWA for learning Polish from zero, for **Hebrew** speakers (RTL, 
 npm install
 npm run dev
 npm run build
+```
+
+```bash
+npm test          # unit + data-integrity tests (Vitest)
+npm run test:e2e  # end-to-end QA in installed Chrome with a fake microphone (Playwright)
 ```
 
 `npm run build` type-checks, builds the standalone single-file app and then the PWA into `dist/`. Pushing to `main` deploys to GitHub Pages.

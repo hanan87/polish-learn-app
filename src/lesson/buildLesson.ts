@@ -205,10 +205,13 @@ export function buildReinforcementLesson(state: ProgressState): LessonStep[] {
     add(readingStep(item, true));
     add(listenStep(item));
   }
-  // Very little history: pad with minimal pairs from the most common Polish contrasts.
-  for (const g of CONTRAST_GROUPS) {
-    if (steps.length >= REINFORCEMENT_SIZE) break;
-    add(pairStep(g));
+  // Very little history: pad with minimal pairs from the most common Polish contrasts
+  // (a second round uses a key suffix, since there are fewer groups than exercise slots).
+  for (const round of ['', '-2']) {
+    for (const g of CONTRAST_GROUPS) {
+      if (steps.length >= REINFORCEMENT_SIZE) break;
+      add(pairStep(g, round));
+    }
   }
 
   // Keep the five-skill order: listening first, then reading, writing, speaking.

@@ -69,7 +69,7 @@ export interface ProgressState {
   customItems: LearningItem[];
 }
 
-const initialState = (): ProgressState => ({
+export const initialState = (): ProgressState => ({
   version: 2,
   xp: 0,
   dailyGoal: 50,
@@ -134,7 +134,7 @@ function load(): ProgressState {
   }
 }
 
-type Action =
+export type Action =
   | { type: 'award'; amount: number }
   | { type: 'learn'; id: string }
   | { type: 'review'; id: string; correct: boolean }
@@ -190,7 +190,7 @@ function updateSounds(state: ProgressState, sounds: SoundKey[], errorSounds: Set
   return { ...state, sounds: next };
 }
 
-function reducer(state: ProgressState, action: Action): ProgressState {
+export function reducer(state: ProgressState, action: Action): ProgressState {
   switch (action.type) {
     case 'award':
       return withXp(state, action.amount);

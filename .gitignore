@@ -6,3 +6,6 @@ public/polish-learn-standalone.html
 .claude/
 *.log
 .DS_Store
+test-results/
+tests/e2e/report/
+tests/e2e/screens/

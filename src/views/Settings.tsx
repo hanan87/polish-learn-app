@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
-import { Download, FileJson, RotateCcw, Smartphone, Target, Upload } from 'lucide-react';
+import { Download, FileJson, Mic, Moon, RotateCcw, Smartphone, Target, Upload } from 'lucide-react';
 import { useLang } from '../i18n/LangContext';
+import { useTheme, type ThemeChoice } from '../i18n/ThemeContext';
+import { MicTest } from '../components/MicTest';
 import { isStandaloneBuild } from '../lib/env';
 import { todayKey } from '../lib/date';
 import { useProgress } from '../state/ProgressContext';
@@ -10,6 +12,7 @@ import { LangSwitch } from '../components/TopBar';
 /** Settings: language, daily goal, standalone download, JSON backup/restore and reset. */
 export function Settings() {
   const { tr } = useLang();
+  const theme = useTheme();
   const { state, setDailyGoal, exportJson, importJson, resetAll } = useProgress();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -55,6 +58,38 @@ export function Settings() {
           </div>
           <LangSwitch />
         </div>
+      </section>
+
+      <section className={card}>
+        <p className="flex items-center gap-1.5 font-bold">
+          <Moon className="size-4 text-indigo-600" /> {tr('ערכת צבעים', 'Color theme')}
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {(
+            [
+              ['light', tr('בהיר', 'Light')],
+              ['dark', tr('כהה', 'Dark')],
+              ['system', tr('לפי המכשיר', 'Device')],
+            ] as [ThemeChoice, string][]
+          ).map(([c, label]) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => theme.setChoice(c)}
+              aria-pressed={theme.choice === c}
+              className={`rounded-xl py-2.5 text-sm font-bold ring-1 ${theme.choice === c ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-slate-50 ring-slate-200'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className={card}>
+        <p className="flex items-center gap-1.5 font-bold">
+          <Mic className="size-4 text-rose-600" /> {tr('בדיקת מיקרופון', 'Microphone test')}
+        </p>
+        <MicTest />
       </section>
 
       <section className={card}>

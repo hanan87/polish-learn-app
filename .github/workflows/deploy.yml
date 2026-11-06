@@ -24,6 +24,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Unit and data-integrity tests must pass before anything is deployed.
+      - run: npm test
       # The site is served from https://<user>.github.io/<repo>/
       - run: npm run build
         env:

@@ -1,7 +1,44 @@
 @import 'tailwindcss';
+@import './dark.css';
 
 @theme {
   --font-sans: 'Rubik Variable', 'Rubik', 'Segoe UI', 'Arial Hebrew', system-ui, sans-serif;
+}
+
+/* `dark:` variant follows the .dark class on <html> (set by ThemeContext), not the OS setting directly. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Dark mode surface fixes. The palette itself is remapped in dark.css; these unlayered rules
+ * (they win over Tailwind's layered utilities) handle the few places where white is used as a
+ * surface or where light text sits on a slate button that became light.
+ */
+.dark .bg-white,
+.dark .bg-white\/95,
+.dark .bg-white\/80,
+.dark .bg-white\/60 {
+  background-color: var(--surface);
+}
+.dark header.sticky,
+.dark nav.fixed {
+  background-color: color-mix(in oklab, var(--surface) 92%, transparent);
+}
+.dark .to-white {
+  --tw-gradient-to: var(--color-slate-50);
+}
+.dark .bg-slate-900,
+.dark .bg-slate-800 {
+  color: var(--color-slate-50);
+}
+.dark .ring-white {
+  --tw-ring-color: var(--surface);
+}
+.dark .ring-offset-2 {
+  --tw-ring-offset-color: var(--color-slate-50);
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--color-slate-400);
 }
 
 @layer base {

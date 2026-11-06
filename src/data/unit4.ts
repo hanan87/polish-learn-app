@@ -62,7 +62,7 @@ export const unit4: UnitSource = {
       hebrew: 'מים מוגזים או לא מוגזים?',
       phoneticHebrew: '[בוֹ]·דָה גָא·זוֹ·[בָא]·נָה צ׳ִ נְיֶה·גָא·זוֹ·[בָא]·נָה?',
       articulationTip: 'גם במילה ארוכה ההטעמה נשארת על ההברה הלפני אחרונה: wa. כאן czy פירושה "או".',
-      backchainingSteps: ['wana', 'gazowana', 'niegazowana'],
+      backchainingSteps: ['niegazowana', 'gazowana czy niegazowana', 'Woda gazowana czy niegazowana?'],
       formality: 'neutral',
       soundTags: ['w'],
       culturalNote: 'המלצר ישאל אתכם את זה כמעט תמיד כשתבקשו מים.',

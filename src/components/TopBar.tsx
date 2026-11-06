@@ -1,5 +1,6 @@
-import { Flame, Settings, Star, Target } from 'lucide-react';
+import { Flame, Moon, Settings, Star, Sun, Target } from 'lucide-react';
 import { useLang } from '../i18n/LangContext';
+import { useTheme } from '../i18n/ThemeContext';
 import { useProgress } from '../state/ProgressContext';
 import { StandaloneDownload } from './StandaloneDownload';
 
@@ -27,6 +28,7 @@ export function LangSwitch() {
 export function TopBar({ title, onOpenSettings }: { title: string; onOpenSettings: () => void }) {
   const { activeStreak, todayXp, state, level, levelProgress } = useProgress();
   const { tr } = useLang();
+  const theme = useTheme();
   const goalPct = Math.min(100, Math.round((todayXp / state.dailyGoal) * 100));
 
   return (
@@ -34,6 +36,14 @@ export function TopBar({ title, onOpenSettings }: { title: string; onOpenSetting
       <div className="mx-auto flex max-w-3xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
         <h1 className="min-w-0 flex-1 truncate text-base font-bold text-slate-900 sm:text-lg">{title}</h1>
         <LangSwitch />
+        <button
+          type="button"
+          onClick={theme.toggle}
+          className="grid size-9 shrink-0 place-items-center rounded-full text-slate-600 hover:bg-slate-100"
+          aria-label={theme.resolved === 'dark' ? tr('מצב בהיר', 'Light mode') : tr('מצב כהה', 'Dark mode')}
+        >
+          {theme.resolved === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
+        </button>
         <StandaloneDownload variant="icon" />
         <button type="button" onClick={onOpenSettings} className="grid size-9 shrink-0 place-items-center rounded-full text-slate-600 hover:bg-slate-100" aria-label={tr('הגדרות', 'Settings')}>
           <Settings className="size-5" />

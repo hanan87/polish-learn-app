@@ -13,6 +13,13 @@
     <link rel="icon" href="/logo.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <title>Polski od zera</title>
+    <script>
+      // Apply the saved theme before first paint to avoid a light flash in dark mode.
+      try {
+        var t = localStorage.getItem('polish-learn:theme');
+        if (t === 'dark' || ((!t || t === 'system') && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

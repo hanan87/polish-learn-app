@@ -5,7 +5,7 @@ import { useLang } from '../i18n/LangContext';
 import { isIOS, speechRecognitionSupported } from '../lib/env';
 import { normalize, scorePronunciation, similarity, type PronunciationResult } from '../lib/text';
 import { speak, stopSpeaking } from '../lib/tts';
-import { MIC_STATUS_MESSAGES, useMic } from '../state/MicContext';
+import { MIC_STATUS_MESSAGES, RETRYABLE, useMic } from '../state/MicContext';
 import { useProgress } from '../state/ProgressContext';
 import { SimulationPanel } from './SimulationPanel';
 import { SpeakControls } from './SpeakControls';
@@ -21,6 +21,42 @@ interface Attempt {
   recognized: boolean;
   scoring: PronunciationResult | null;
   selfRated: boolean;
+  /** Nothing was captured at all (silent mic, muted input): not scored, the learner is asked to retry. */
+  noAudio: boolean;
+  /** The recording exists but carries no usable sound (the browser gave the mic to speech recognition). */
+  audioSilent: boolean;
+  sttError: string | null;
+}
+
+/** Human explanation of why automatic scoring was not available. */
+function sttReason(code: string | null, tr: (he: string, en: string) => string): string {
+  switch (code) {
+    case 'unsupported':
+      return tr(
+        'הדפדפן הזה לא תומך בזיהוי דיבור (למשל Firefox). ההקלטה וההשוואה עובדות; לציון אוטומטי פתחו ב-Chrome או ב-Safari.',
+        'This browser has no speech recognition (e.g. Firefox). Recording and comparison work; for automatic scoring use Chrome or Safari.',
+      );
+    case 'network':
+      return tr('זיהוי הדיבור דורש חיבור לאינטרנט (הוא רץ בשרתי Google/Apple).', 'Speech recognition needs an internet connection (it runs on Google/Apple servers).');
+    case 'not-allowed':
+    case 'service-not-allowed':
+      return tr(
+        'הדפדפן חסם את שירות זיהוי הדיבור (קורה ב-Brave, Edge ובמצב פרטי). ההקלטה עצמה עובדת – דרגו את עצמכם.',
+        'The browser blocked its speech-recognition service (happens in Brave, Edge and private mode). Recording itself works – rate yourself.',
+      );
+    case 'language-not-supported':
+      return tr('זיהוי הדיבור בדפדפן הזה לא תומך בפולנית. נסו Chrome.', 'Speech recognition in this browser does not support Polish. Try Chrome.');
+    case 'audio-capture':
+      return tr(
+        'הדפדפן לא הצליח להפעיל זיהוי דיבור במקביל להקלטה. ההקלטה נשמרה – השוו קולות ודרגו את עצמכם.',
+        'The browser could not run speech recognition alongside the recording. Your recording was kept – compare and rate yourself.',
+      );
+    default:
+      return tr(
+        'לא זוהו מילים בהקלטה. דברו קרוב יותר למיקרופון, בקול ברור, ונסו שוב – או דרגו את עצמכם.',
+        'No words were recognized. Speak closer to the microphone, clearly, and try again – or rate yourself.',
+      );
+  }
 }
 
 interface Props {
@@ -77,8 +113,18 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
   useEffect(() => {
     const r = recorder.result;
     if (!r) return;
+    const noAudio = !r.recognized && !r.heardVoice && r.peakLevel < 0.01;
     const scoring = r.recognized ? scorePronunciation(target, r.transcript) : null;
-    finishAttempt({ audioUrl: r.audioUrl, simulatedVoice: null, recognized: r.recognized, scoring, selfRated: false });
+    finishAttempt({
+      audioUrl: r.audioUrl,
+      simulatedVoice: null,
+      recognized: r.recognized,
+      scoring,
+      selfRated: false,
+      noAudio,
+      audioSilent: !r.audioUrl || r.audioLost || r.peakLevel < 0.004,
+      sttError: r.sttError,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recorder.result]);
 
@@ -94,7 +140,16 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
     setSimulating(true);
     await wait(1400);
     setSimulating(false);
-    finishAttempt({ audioUrl: null, simulatedVoice: transcript, recognized: true, scoring: scorePronunciation(target, transcript), selfRated: false });
+    finishAttempt({
+      audioUrl: null,
+      simulatedVoice: transcript,
+      recognized: true,
+      scoring: scorePronunciation(target, transcript),
+      selfRated: false,
+      noAudio: false,
+      audioSilent: false,
+      sttError: null,
+    });
   };
 
   const selfRate = (good: boolean) => {
@@ -139,6 +194,7 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
   const processing = recorder.status === 'processing' || simulating;
   const score = attempt?.scoring?.score ?? null;
   const needsHelp = score !== null && score < PASS_SCORE;
+  const canCompare = !!attempt && !attempt.noAudio && ((!!attempt.audioUrl && !attempt.audioSilent) || !!attempt.simulatedVoice);
   const heard = attempt?.scoring?.transcript ? normalize(attempt.scoring.transcript) : '';
   const soundedLikePartner = !!confusableWith && !!heard && similarity(heard, normalize(confusableWith)) > similarity(heard, normalize(target));
 
@@ -159,7 +215,20 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
             <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
             {MIC_STATUS_MESSAGES[mic.status][lang]}
           </p>
-          {mic.status !== 'no-device' && !compact && <StandaloneDownload variant="inline" />}
+          {RETRYABLE.includes(mic.status) && (
+            <button
+              type="button"
+              onClick={() => {
+                mic.retry();
+                setAttempt(null);
+                recorder.start();
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white active:scale-95"
+            >
+              <RotateCcw className="size-4" /> {tr('נסו שוב', 'Try again')}
+            </button>
+          )}
+          {(mic.status === 'blocked-frame' || mic.status === 'insecure' || mic.status === 'unsupported') && !compact && <StandaloneDownload variant="inline" />}
         </div>
       )}
 
@@ -186,25 +255,33 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
           </p>
           {!speechRecognitionSupported && (
             <p className="text-center text-xs text-slate-500">
-              {tr(
-                'הדפדפן לא תומך בזיהוי דיבור – ההקלטה וההשוואה הקולית יעבדו, והציון יהיה בהערכה עצמית.',
-                'This browser has no speech recognition – recording and voice comparison work, scoring is by self-assessment.',
-              )}
+              {sttReason('unsupported', tr)}
               {isIOS && tr(' ב-iPhone ודאו ש-Siri והכתבה מופעלים בהגדרות.', ' On iPhone make sure Siri & Dictation are enabled in Settings.')}
-            </p>
-          )}
-          {recorder.error === 'android-audio-capture' && (
-            <p className="text-center text-xs text-amber-700">
-              {tr(
-                'באנדרואיד, זיהוי הדיבור לא הצליח לגשת למיקרופון במקביל להקלטה. ההקלטה נשמרה – השתמשו בהשוואה הקולית ובהערכה עצמית.',
-                'On Android, speech recognition could not share the microphone with the recorder. Your recording was kept – use the voice comparison and self-assessment.',
-              )}
             </p>
           )}
         </div>
       )}
 
       {(recording || simulating) && <Waveform analyserRef={recorder.analyserRef} active simulated={simulating || !recorder.analyserRef.current} />}
+      {recording && !simulating && (
+        <div className="space-y-1" aria-live="polite">
+          <div
+            className="h-2 overflow-hidden rounded-full bg-slate-200"
+            role="meter"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(recorder.level * 100)}
+            aria-label={tr('עוצמת קול', 'Input level')}
+          >
+            <div className={`h-full rounded-full transition-[width] duration-75 ${recorder.heardVoice ? 'bg-emerald-500' : 'bg-amber-400'}`} style={{ width: `${Math.max(3, recorder.level * 100)}%` }} />
+          </div>
+          <p className={`text-center text-xs font-medium ${recorder.heardVoice ? 'text-emerald-700' : 'text-slate-500'}`}>
+            {recorder.heardVoice
+              ? tr('שומעים אתכם – ההקלטה תיעצר לבד כשתסיימו', 'We hear you – recording stops by itself when you finish')
+              : tr('מחכים לקול שלכם… אם הפס לא זז, המיקרופון לא קולט', 'Waiting for your voice… if the bar does not move, the mic is not picking up')}
+          </p>
+        </div>
+      )}
       {recording && recorder.interim && (
         <p dir="ltr" lang="pl" className="polish text-center text-lg text-slate-500">
           {recorder.interim}…
@@ -213,14 +290,32 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
 
       {mic.simulation && <SimulationPanel target={target} onSimulate={simulate} disabled={processing || recording} />}
 
-      {attempt && (
+      {attempt?.noAudio && (
+        <div className="animate-pop-in space-y-3 rounded-2xl bg-rose-50 p-4 ring-1 ring-rose-200" role="alert">
+          <p className="flex items-start gap-2 text-sm font-bold text-rose-900">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            {tr('לא נקלט קול בהקלטה.', 'No sound was captured.')}
+          </p>
+          <ul className="list-disc space-y-1 ps-5 text-sm text-rose-900">
+            <li>{tr('ודאו שהמיקרופון לא מושתק ושהדפדפן קיבל הרשאה.', 'Check the microphone is not muted and the browser has permission.')}</li>
+            <li>{tr('דברו מיד אחרי הלחיצה, קרוב לטלפון.', 'Start speaking right after tapping, close to the phone.')}</li>
+            <li>{tr('בהגדרות ← "בדיקת מיקרופון" אפשר לראות מה הדפדפן קולט.', 'Settings → "Microphone test" shows what the browser picks up.')}</li>
+          </ul>
+          <button type="button" onClick={toggleRecording} className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white active:scale-95">
+            <RotateCcw className="size-4" /> {tr('נסו שוב', 'Try again')}
+          </button>
+        </div>
+      )}
+
+      {attempt && !attempt.noAudio && (
         <div className="space-y-4 rounded-2xl bg-white p-4 ring-1 ring-slate-200">
           {attempt.scoring ? (
             <ScoreView scoring={attempt.scoring} selfRated={attempt.selfRated} />
           ) : (
             <div className="space-y-2">
-              <p className="text-sm text-slate-700">
-                {tr('לא התקבל תמלול אוטומטי. האזינו להשוואה הקולית ודרגו את עצמכם בכנות:', 'No automatic transcript. Listen to the voice comparison and rate yourself honestly:')}
+              <p className="text-sm text-slate-700">{sttReason(attempt.sttError, tr)}</p>
+              <p className="text-sm font-medium text-slate-800">
+                {tr('האזינו להשוואה הקולית ודרגו את עצמכם בכנות:', 'Listen to the voice comparison and rate yourself honestly:')}
               </p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => selfRate(true)} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-50 py-2.5 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
@@ -250,9 +345,19 @@ export function PronunciationPractice({ target, itemId, articulationTip, backcha
             </p>
           )}
 
+          {!canCompare && (
+            <p className="rounded-xl bg-slate-100 p-3 text-xs text-slate-600">
+              {tr(
+                'הדפדפן לא שמר את הקול שלכם במקביל לזיהוי הדיבור, ולכן אי אפשר להשמיע את ההקלטה. הציון מבוסס על הזיהוי.',
+                'The browser did not keep your audio while recognizing speech, so your recording cannot be played back. The score is based on recognition.',
+              )}
+            </p>
+          )}
+
           <button
             type="button"
             onClick={compare}
+            hidden={!canCompare}
             disabled={comparing !== null}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-rose-600 to-orange-500 px-4 py-3.5 text-base font-bold text-white shadow-md active:scale-[0.98] disabled:opacity-80"
           >

@@ -9,8 +9,13 @@ import { isInIframe, mediaRecordingSupported, micAllowedByPolicy } from '../lib/
  *  - insecure:      page is not served over HTTPS / localhost
  *  - unsupported:   no getUserMedia / MediaRecorder
  *  - no-device:     no microphone hardware found
+ *  - busy:          another app holds the microphone (call, Zoom, another tab)
+ * Speech-recognition errors never change this status: they only affect scoring.
  */
-export type MicStatus = 'ready' | 'blocked-frame' | 'denied' | 'insecure' | 'unsupported' | 'no-device';
+export type MicStatus = 'ready' | 'blocked-frame' | 'denied' | 'insecure' | 'unsupported' | 'no-device' | 'busy';
+
+/** Statuses the learner can fix and retry from the UI. */
+export const RETRYABLE: MicStatus[] = ['denied', 'no-device', 'busy'];
 
 interface MicApi {
   status: MicStatus;
@@ -19,7 +24,10 @@ interface MicApi {
   simulation: boolean;
   setSimulation: (on: boolean) => void;
   reportMediaError: (err: unknown) => void;
-  reportRecognitionError: (code: string) => void;
+  /** A successful getUserMedia clears any earlier blocked state (e.g. permission granted later). */
+  reportMediaOk: () => void;
+  /** Let the learner try again after fixing permissions or closing the app that held the mic. */
+  retry: () => void;
 }
 
 const MicContext = createContext<MicApi | null>(null);
@@ -42,16 +50,15 @@ export function MicProvider({ children }: { children: ReactNode }) {
     } else if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
       // Inside an iframe a NotAllowedError without a prompt is almost always the frame's Permissions Policy.
       setStatus(isInIframe || micAllowedByPolicy() === false ? 'blocked-frame' : 'denied');
+    } else if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') {
+      setStatus('busy');
     } else {
       setStatus('unsupported');
     }
   }, []);
 
-  const reportRecognitionError = useCallback((code: string) => {
-    if (code === 'not-allowed' || code === 'service-not-allowed') {
-      setStatus(isInIframe ? 'blocked-frame' : 'denied');
-    }
-  }, []);
+  const reportMediaOk = useCallback(() => setStatus((s) => (s === 'ready' ? s : 'ready')), []);
+  const retry = useCallback(() => setStatus((s) => (RETRYABLE.includes(s) ? 'ready' : s)), []);
 
   const api = useMemo<MicApi>(() => {
     const blocked = status !== 'ready';
@@ -61,9 +68,10 @@ export function MicProvider({ children }: { children: ReactNode }) {
       simulation: blocked || simulationManual,
       setSimulation,
       reportMediaError,
-      reportRecognitionError,
+      reportMediaOk,
+      retry,
     };
-  }, [status, simulationManual, reportMediaError, reportRecognitionError]);
+  }, [status, simulationManual, reportMediaError, reportMediaOk, retry]);
 
   return <MicContext.Provider value={api}>{children}</MicContext.Provider>;
 }
@@ -91,6 +99,10 @@ export const MIC_STATUS_MESSAGES: Record<MicStatus, { he: string; en: string }> 
   unsupported: {
     he: 'הדפדפן הזה לא תומך בהקלטת שמע. נסו Chrome או Safari עדכניים. בינתיים אפשר להשתמש בפאנל הסימולציה.',
     en: 'This browser cannot record audio. Try an up-to-date Chrome or Safari. Meanwhile you can use the simulation panel.',
+  },
+  busy: {
+    he: 'המיקרופון תפוס על ידי אפליקציה אחרת (שיחה, Zoom, לשונית אחרת). סגרו אותה ולחצו "נסו שוב".',
+    en: 'Another app is using the microphone (a call, Zoom, another tab). Close it and tap "Try again".',
   },
   'no-device': {
     he: 'לא נמצא מיקרופון במכשיר. חברו מיקרופון או אוזניות ונסו שוב.',
